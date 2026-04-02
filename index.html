@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>MEX-INV 盘点系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+        .animate-scan { animation: scan 1.5s linear infinite; }
+        body { touch-action: pan-x pan-y; background-color: #e2e8f0; }
+        .actual-qty-input:focus { border-color: #059669 !important; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); }
+    </style>
+</head>
+<body class="font-sans overflow-hidden">
+    <div id="app" class="p-2 h-screen flex flex-col">
+        <div id="scanStatus" class="fixed top-0 left-0 w-full h-1 z-[1000] transition-all"></div>
+
+        <div class="flex justify-between items-center mb-2 px-2">
+            <h1 class="font-black text-xl text-blue-900 italic uppercase">Mex-Inventory</h1>
+            <button onclick="resetData()" class="text-[10px] bg-white px-2 py-1 rounded text-slate-500 shadow-sm">清空重置</button>
+        </div>
+
+        <div class="flex gap-2 mb-3 px-1">
+            <label class="bg-slate-800 text-white w-12 h-12 flex items-center justify-center rounded-xl cursor-pointer shadow-lg active:scale-95 transition-all">
+                📂<input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
+            </label>
+            <div class="relative flex-1 flex gap-2">
+                <input type="text" id="searchInput" placeholder="点击输入条码" class="flex-1 h-12 px-4 rounded-xl border-2 border-slate-300 font-bold outline-none bg-white shadow-md focus:border-blue-500" />
+                <button onclick="startScan()" class="bg-blue-600 text-white px-5 rounded-xl font-black shadow-xl active:bg-blue-700">📷 开启扫码</button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-auto bg-white rounded-2xl shadow-inner border border-slate-300">
+            <table id="mainTable" class="border-collapse table-fixed w-max">
+                <thead id="tableHead" class="sticky top-0 bg-slate-100 z-10 shadow-md"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <button onclick="exportExcel()" class="mt-2 bg-emerald-800 text-white py-4 rounded-xl font-black text-lg shadow-xl active:bg-emerald-900 transition-colors">导出盘点表 (EXCEL)</button>
+
+        <div id="cameraModal" class="fixed inset-0 bg-black z-[999] hidden flex-col">
+            <div id="cameraHeader" class="flex justify-between items-center p-6 text-white bg-black/60 backdrop-blur-md">
+                <span id="scanMsg" class="font-bold">对准条码...</span>
+                <button onclick="stopScan()" class="bg-white/20 px-6 py-2 rounded-full border border-white/40">退出</button>
+            </div>
+            <div class="flex-1 relative">
+                <video id="video" class="absolute inset-0 w-full h-full object-cover"></video>
+                <div class="absolute inset-0 border-[5rem] border-black/50 pointer-events-none flex items-center justify-center">
+                    <div id="scanFrame" class="w-80 h-48 border-4 border-white/50 rounded-xl relative overflow-hidden transition-colors">
+                        <div id="scanLine" class="absolute top-0 w-full h-1 bg-blue-500 shadow-[0_0_15px_blue] animate-scan"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let inventoryData = JSON.parse(localStorage.getItem('MEX_DATA_V1')) || [];
+        let headers = JSON.parse(localStorage.getItem('MEX_HEAD_V1')) || [];
+        let colWidths = JSON.parse(localStorage.getItem('MEX_WIDTHS_V1')) || {};
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+
+        function init() {
+            if (headers.length > 0) renderTable();
+            document.getElementById('searchInput').onkeydown = (e) => e.key === 'Enter' && performSearch(e.target.value);
+            document.getElementById('fileInput').onchange = handleFileUpload;
+        }
+
+        function renderTable() {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            
+            // 渲染表头 + 深色调节手柄
+            thead.innerHTML = `<tr>${headers.map((h, i) => `
+                <th class="relative p-4 text-left text-slate-800 font-black border-b border-r border-slate-300 bg-slate-100" style="width: ${colWidths[h] || 150}px">
+                    <span class="truncate block pr-6">${h}</span>
+                    <div class="absolute right-0 top-0 h-full w-10 flex items-center justify-end" 
+                         ontouchstart="initResize(event, '${h}')">
+                        <div class="w-1.5 h-10 bg-slate-600 rounded-full mr-1 shadow-sm flex flex-col justify-around py-2 px-[1px]">
+                            <div class="w-full h-0.5 bg-white/30 rounded-full"></div>
+                            <div class="w-full h-0.5 bg-white/30 rounded-full"></div>
+                        </div>
+                    </div>
+                </th>`).join('')}</tr>`;
+
+            // 渲染行 + 重点蓝色框框
+            tbody.innerHTML = inventoryData.map((row, idx) => `
+                <tr class="even:bg-slate-50/50 transition-colors duration-500" id="row-${idx}">
+                    ${headers.map(h => `
+                        <td class="border-b border-r border-slate-200 p-2">
+                            ${h === '实际数量' ? `
+                                <div class="p-1">
+                                    <input type="number" value="${row[h] || ''}" 
+                                        onchange="updateVal(${idx}, '${h}', this.value)"
+                                        inputmode="decimal"
+                                        class="actual-qty-input w-full h-12 px-3 bg-blue-50 border-2 border-blue-700 rounded-lg font-black text-blue-900 text-xl shadow-md outline-none transition-all" />
+                                </div>
+                            ` : `
+                                <input type="text" value="${row[h] || ''}" 
+                                    onchange="updateVal(${idx}, '${h}', this.value)"
+                                    class="w-full h-10 px-2 bg-transparent outline-none font-bold text-slate-900" />
+                            `}
+                        </td>`).join('')}
+                </tr>`).join('');
+        }
+
+        function performSearch(code) {
+            const cleanCode = code.trim();
+            if (!cleanCode) return;
+            const key = headers.find(h => h.toLowerCase().includes('cod') || h.toLowerCase().includes('bar')) || headers[0];
+            const idx = inventoryData.findIndex(r => String(r[key]).trim() === cleanCode);
+
+            const statusLine = document.getElementById('scanStatus');
+            if (idx !== -1) {
+                inventoryData[idx]['实际数量'] = (parseFloat(inventoryData[idx]['实际数量']) || 0) + 1;
+                save(); renderTable();
+                
+                const row = document.getElementById(`row-${idx}`);
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('bg-yellow-300', 'ring-4', 'ring-blue-500', 'ring-inset');
+                
+                statusLine.className = "fixed top-0 left-0 w-full h-1 z-[1000] bg-green-500 shadow-[0_0_15px_green]";
+                playAudio(880); 
+                if (navigator.vibrate) navigator.vibrate(100);
+            } else {
+                statusLine.className = "fixed top-0 left-0 w-full h-1 z-[1000] bg-red-500 shadow-[0_0_15px_red]";
+                playAudio(220);
+                alert("未找到条码: " + cleanCode);
+            }
+            document.getElementById('searchInput').value = '';
+            setTimeout(() => { statusLine.className = "fixed top-0 left-0 w-full h-0 z-[1000]"; }, 1000);
+        }
+
+        async function startScan() {
+            document.getElementById('cameraModal').style.display = 'flex';
+            try {
+                const devices = await codeReader.listVideoInputDevices();
+                const back = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear')) || devices[devices.length - 1];
+                const constraints = { video: { deviceId: back.deviceId, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+                
+                codeReader.decodeFromConstraints(constraints, 'video', (result, err) => {
+                    if (result) {
+                        performSearch(result.getText());
+                        stopScan();
+                    }
+                });
+            } catch (e) { alert("摄像头启动失败，请检查权限"); stopScan(); }
+        }
+
+        function stopScan() { codeReader.reset(); document.getElementById('cameraModal').style.display = 'none'; }
+
+        function initResize(e, h) {
+            const startX = e.touches ? e.touches[0].pageX : e.pageX;
+            const startW = colWidths[h] || 150;
+            const move = (me) => {
+                const curX = me.touches ? me.touches[0].pageX : me.pageX;
+                colWidths[h] = Math.max(80, startW + (curX - startX));
+                renderTable();
+            };
+            const end = () => {
+                document.removeEventListener('touchmove', move);
+                document.removeEventListener('touchend', end);
+                save();
+            };
+            document.addEventListener('touchmove', move, { passive: false });
+            document.addEventListener('touchend', end, { once: true });
+        }
+
+        function updateVal(idx, h, val) { inventoryData[idx][h] = val; save(); }
+        function save() { 
+            localStorage.setItem('MEX_DATA_V1', JSON.stringify(inventoryData)); 
+            localStorage.setItem('MEX_HEAD_V1', JSON.stringify(headers)); 
+            localStorage.setItem('MEX_WIDTHS_V1', JSON.stringify(colWidths));
+        }
+        function playAudio(freq) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.frequency.value = freq;
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+                osc.start(); osc.stop(ctx.currentTime + 0.3);
+            } catch(e){}
+        }
+        function handleFileUpload(e) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const wb = XLSX.read(evt.target.result, { type: 'binary' });
+                const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+                headers = Object.keys(data[0]);
+                if (!headers.includes('实际数量')) headers.push('实际数量');
+                inventoryData = data;
+                save(); renderTable();
+            };
+            reader.readAsBinaryString(e.target.files[0]);
+        }
+        function exportExcel() {
+            const ws = XLSX.utils.json_to_sheet(inventoryData, { header: headers });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+            XLSX.writeFile(wb, `MexInv_${new Date().getHours()}h.xlsx`);
+        }
+        function resetData() { if(confirm("确定要清空所有数据重新开始吗？")){ localStorage.clear(); location.reload(); } }
+
+        init();
+    </script>
+</body>
+</html>
