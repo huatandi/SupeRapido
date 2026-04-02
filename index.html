@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>SuperRapido V40.1 - 核心稳健版</title>
+    <title>SuperRapido V40.5 - iOS 扫码修复版</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f8fafc; touch-action: pan-x pan-y; font-family: system-ui; }
-        .table-container { background: white; border: 2px solid #1e293b; height: 60vh; overflow: auto; border-radius: 12px; position: relative; }
+        .table-container { background: white; border: 2px solid #1e293b; height: 58vh; overflow: auto; border-radius: 12px; position: relative; }
         table { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: max-content; }
         th { position: sticky; top: 0; z-index: 50; background: #0f172a; color: white; border-right: 1px solid #334155; border-bottom: 3px solid #000; padding: 12px; font-size: 13px; text-align: left; }
         .resizer { position: absolute; right: 0; top: 0; height: 100%; width: 15px; cursor: col-resize; z-index: 60; }
@@ -22,7 +22,6 @@
         .scan-line { position: absolute; width: 100%; height: 4px; background: #3b82f6; top: 0; animation: scanLineMove 1s infinite linear; box-shadow: 0 0 15px #3b82f6; }
         @keyframes scanLineMove { 0% { top: 5%; } 100% { top: 95%; } }
         .btn-sm { font-size: 10px !important; padding: 4px 10px !important; }
-        .cam-btn-v40 { width: 70px !important; height: 70px !important; font-size: 35px !important; flex-shrink: 0; border: 3px solid white; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
     </style>
 </head>
 <body class="p-2">
@@ -42,7 +41,7 @@
 
     <div class="flex flex-col h-screen">
         <div class="flex justify-between items-center mb-1">
-            <h1 class="text-base font-black text-slate-900">V40.1 <span class="bg-blue-700 text-white text-[8px] px-1.5 py-0.5 rounded ml-1">STABLE</span></h1>
+            <h1 class="text-base font-black text-slate-900">V40.5 <span class="bg-blue-700 text-white text-[8px] px-1.5 py-0.5 rounded ml-1 uppercase">iOS Compatible</span></h1>
             <div class="flex gap-1.5">
                 <button onclick="openColModal()" class="bg-slate-700 text-white btn-sm rounded-full font-bold">列管理</button>
                 <button onclick="hardReset()" class="bg-red-600 text-white btn-sm rounded-full font-bold">清空重置</button>
@@ -50,11 +49,10 @@
         </div>
 
         <div class="flex gap-2 mb-2 bg-white p-1.5 rounded-2xl shadow border-2 border-slate-200 items-center">
-            <button onclick="startScanning()" class="bg-blue-600 text-white rounded-2xl active:scale-90 flex items-center justify-center cam-btn-v40">📷</button>
+            <button id="scanBtn" onclick="startScanning()" class="bg-blue-600 text-white w-[75px] h-[75px] rounded-2xl active:scale-90 flex items-center justify-center text-4xl shadow-lg border-2 border-white shrink-0">📷</button>
             <div class="flex-1 flex flex-col gap-1">
                 <div class="flex gap-1">
-                    <input type="text" id="manualInput" placeholder="输入/扫码枪..." autofocus
-                        class="flex-1 border-2 border-blue-500 rounded-xl px-2 h-10 font-bold outline-none text-sm" />
+                    <input type="text" id="manualInput" placeholder="输入/扫码枪..." autofocus class="flex-1 border-2 border-blue-500 rounded-xl px-2 h-10 font-bold outline-none text-sm" />
                     <button onclick="handleBarcode(manualInput.value)" class="bg-slate-800 text-white px-3 rounded-xl font-black text-[10px] h-10">确认</button>
                 </div>
                 <label class="bg-slate-50 text-slate-500 h-8 flex items-center justify-center rounded-xl border border-dashed border-slate-300 text-[10px] font-bold">
@@ -71,7 +69,7 @@
 
     <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
         <div class="p-4 flex justify-between items-center bg-slate-900 text-white border-b-2 border-blue-500">
-            <span class="font-bold text-blue-400">正在扫描...</span>
+            <span class="font-bold text-blue-400">正在扫描 (iOS 优化)...</span>
             <button onclick="stopScanning()" class="bg-red-600 px-8 py-2 rounded-full font-bold">关闭</button>
         </div>
         <div class="relative flex-1 overflow-hidden bg-black">
@@ -81,7 +79,7 @@
     </div>
 
     <script>
-        const VER = "SR40_STABLE_V1";
+        const VER = "SR40_STABLE_V5";
         let db = JSON.parse(localStorage.getItem(VER+'_DATA')) || [];
         let columns = JSON.parse(localStorage.getItem(VER+'_COLS')) || [];
         let widths = JSON.parse(localStorage.getItem(VER+'_W')) || {};
@@ -98,25 +96,54 @@
             osc.start(); osc.stop(audioCtx.currentTime + 0.2);
         }
 
-        document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const r = new FileReader();
-            r.onload = (ev) => {
-                try {
-                    const data = new Uint8Array(ev.target.result);
-                    const wb = XLSX.read(data, { type: 'array' });
-                    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-                    if (json.length) {
-                        columns = Object.keys(json[0]);
-                        if (!columns.includes('实际数量')) columns.unshift('实际数量');
-                        db = json; push(); render();
-                        showMsg("✅ 文件加载成功！", false);
+        async function startScanning() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const scanUI = document.getElementById('scanUI');
+            const videoEl = document.getElementById('v');
+            
+            // 1. 显示 UI 并强制初始化 video 属性
+            scanUI.style.display = 'flex';
+            videoEl.setAttribute('autoplay', '');
+            videoEl.setAttribute('muted', '');
+            videoEl.setAttribute('playsinline', '');
+            videoEl.muted = true;
+
+            try {
+                // 2. 尝试强制请求环境摄像头 (针对 iOS 严格限制)
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", focusMode: "continuous" } 
+                });
+                
+                videoEl.srcObject = stream;
+                
+                // 3. 关键：监听 metadata 加载后显式调用 play()
+                videoEl.onloadedmetadata = async () => {
+                    try {
+                        await videoEl.play();
+                        // 4. 视频播放后启动识别逻辑
+                        zxing.decodeFromStream(stream, 'v', (res) => { 
+                            if (res) handleBarcode(res.getText(), true);
+                        });
+                    } catch (playErr) {
+                        console.error("播放被拦截", playErr);
+                        showMsg("请点击允许浏览器播放视频");
                     }
-                } catch (err) { showMsg("❌ 导入失败"); }
-            };
-            r.readAsArrayBuffer(file);
-        };
+                };
+            } catch (err) { 
+                showMsg("相机开启失败，请确认 HTTPS 或 Safari 权限"); 
+                stopScanning(); 
+            }
+        }
+
+        function stopScanning() { 
+            zxing.reset(); 
+            const videoEl = document.getElementById('v');
+            if (videoEl.srcObject) {
+                videoEl.srcObject.getTracks().forEach(track => track.stop());
+                videoEl.srcObject = null;
+            }
+            document.getElementById('scanUI').style.display = 'none'; 
+        }
 
         function handleBarcode(code, isFromCamera = false) {
             if(!code) return;
@@ -133,101 +160,41 @@
                     rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     setTimeout(() => { if(inputEl){inputEl.focus(); inputEl.select();} }, 300);
                 }
-                stopScanning();
+                if(isFromCamera) stopScanning();
             } else { 
                 playFeedback(false); 
                 showMsg("⚠️ 未找到: " + target);
-                if (!isFromCamera) manualInput.focus();
             }
         }
 
-        document.getElementById('manualInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleBarcode(e.target.value); });
+        // 文件处理
+        document.getElementById('fileInput').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const r = new FileReader();
+            r.onload = (ev) => {
+                const data = new Uint8Array(ev.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+                if (json.length) {
+                    columns = Object.keys(json[0]);
+                    if (!columns.includes('实际数量')) columns.unshift('实际数量');
+                    db = json; push(); render();
+                    showMsg("✅ 文件加载成功", false);
+                }
+            };
+            r.readAsArrayBuffer(file);
+        };
 
-        // 核心修复：针对 iOS 的启动序列优化
-        async function startScanning() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const scanUI = document.getElementById('scanUI');
-            const videoEl = document.getElementById('v');
-            scanUI.style.display = 'flex';
-            
-            try {
-                // 1. 获取所有设备，寻找后置摄像头
-                const videoDevices = await zxing.listVideoInputDevices();
-                const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back')) || videoDevices[0];
-                
-                // 2. iOS 必须的约束条件
-                const constraints = { 
-                    video: { 
-                        deviceId: backCamera ? backCamera.deviceId : undefined,
-                        facingMode: "environment" 
-                    } 
-                };
-
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                videoEl.srcObject = stream;
-                
-                // 3. 关键：iOS 需要在明确 play 后开始识别
-                videoEl.setAttribute('autoplay', 'true');
-                videoEl.setAttribute('muted', 'true');
-                videoEl.setAttribute('playsinline', 'true');
-                
-                videoEl.onloadedmetadata = async () => {
-                    try {
-                        await videoEl.play();
-                        // 4. 视频播放成功后再启动 zxing
-                        zxing.decodeFromStream(stream, 'v', (res) => { 
-                            if (res) handleBarcode(res.getText(), true);
-                        });
-                    } catch (playErr) {
-                        console.error("Video play failed:", playErr);
-                    }
-                };
-
-            } catch (err) { 
-                showMsg("❌ 相机异常: " + err.message); 
-                stopScanning(); 
-            }
-        }
-
-        function stopScanning() { 
-            zxing.reset(); 
-            const videoEl = document.getElementById('v');
-            if (videoEl.srcObject) {
-                videoEl.srcObject.getTracks().forEach(track => track.stop());
-                videoEl.srcObject = null;
-            }
-            document.getElementById('scanUI').style.display = 'none'; 
-        }
-
+        // 基础逻辑
         function openColModal() { document.getElementById('colModal').style.display = 'flex'; renderColList(); }
         function closeColModal() { document.getElementById('colModal').style.display = 'none'; }
         function renderColList() {
             const list = document.getElementById('colList');
-            list.innerHTML = columns.map((c, i) => `
-                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border">
-                    <span class="font-bold">${c}</span>
-                    <div class="flex gap-2">
-                        <button onclick="moveCol(${i}, -1)" class="w-10 h-10 bg-white border rounded">⬆️</button>
-                        <button onclick="moveCol(${i}, 1)" class="w-10 h-10 bg-white border rounded">⬇️</button>
-                        <button onclick="deleteCol('${c}')" class="w-10 h-10 bg-red-50 text-red-600 border border-red-200 rounded">❌</button>
-                    </div>
-                </div>`).join('');
+            list.innerHTML = columns.map((c, i) => `<div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border"><span class="font-bold">${c}</span><div class="flex gap-2"><button onclick="moveCol(${i}, -1)" class="w-10 h-10 bg-white border rounded">⬆️</button><button onclick="moveCol(${i}, 1)" class="w-10 h-10 bg-white border rounded">⬇️</button><button onclick="deleteCol('${c}')" class="w-10 h-10 bg-red-50 text-red-600 border border-red-200 rounded">❌</button></div></div>`).join('');
         }
-        function moveCol(idx, dir) {
-            const target = idx + dir;
-            if (target >= 0 && target < columns.length) {
-                [columns[idx], columns[target]] = [columns[target], columns[idx]];
-                renderColList(); push(); render();
-            }
-        }
-        function addColumn() {
-            const n = document.getElementById('newColName').value.trim();
-            if (n && !columns.includes(n)) {
-                columns.push(n); db.forEach(r => r[n] = "");
-                document.getElementById('newColName').value = "";
-                renderColList(); push(); render();
-            }
-        }
+        function moveCol(idx, dir) { const target = idx + dir; if (target >= 0 && target < columns.length) { [columns[idx], columns[target]] = [columns[target], columns[idx]]; renderColList(); push(); render(); } }
+        function addColumn() { const n = document.getElementById('newColName').value.trim(); if (n && !columns.includes(n)) { columns.push(n); db.forEach(r => r[n] = ""); document.getElementById('newColName').value = ""; renderColList(); push(); render(); } }
         function deleteCol(n) { if(confirm(`确认删除 "${n}" 吗？`)) { columns = columns.filter(c => c !== n); push(); renderColList(); render(); } }
 
         function render() {
@@ -243,23 +210,12 @@
             document.addEventListener('touchmove', onMove, { passive: false });
             document.addEventListener('touchend', onEnd, { once: true });
         }
-        function showMsg(txt, isErr=true) {
-            const el = document.getElementById('toast'); el.innerText = txt;
-            el.style.display = 'block'; el.style.background = isErr ? '#ef4444' : '#10b981';
-            setTimeout(() => el.style.display = 'none', 2500);
-        }
+        function showMsg(txt, isErr=true) { const el = document.getElementById('toast'); el.innerText = txt; el.style.display = 'block'; el.style.background = isErr ? '#ef4444' : '#10b981'; setTimeout(() => el.style.display = 'none', 2500); }
         function saveVal(r, c, v) { db[r][c] = v; push(); }
-        function push() { 
-            localStorage.setItem(VER+'_DATA', JSON.stringify(db)); 
-            localStorage.setItem(VER+'_COLS', JSON.stringify(columns));
-            localStorage.setItem(VER+'_W', JSON.stringify(widths));
-        }
+        function push() { localStorage.setItem(VER+'_DATA', JSON.stringify(db)); localStorage.setItem(VER+'_COLS', JSON.stringify(columns)); localStorage.setItem(VER+'_W', JSON.stringify(widths)); }
         function hardReset() { if(confirm("确定彻底重置吗？")) { localStorage.clear(); location.reload(); } }
-        function exportExcel() {
-            const ws = XLSX.utils.json_to_sheet(db, { header: columns });
-            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-            XLSX.writeFile(wb, `Stock_${new Date().toLocaleDateString()}.xlsx`);
-        }
+        function exportExcel() { const ws = XLSX.utils.json_to_sheet(db, { header: columns }); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory"); XLSX.writeFile(wb, `Stock_${new Date().toLocaleDateString()}.xlsx`); }
+        document.getElementById('manualInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleBarcode(e.target.value); });
         if (columns.length) render();
     </script>
 </body>
