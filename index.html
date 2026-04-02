@@ -34,129 +34,77 @@ td { border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding:
 
 <div class="flex flex-col h-screen">
 
-<div class="flex justify-between items-center mb-1">
-<h1 class="text-base font-black text-slate-900">V40.1 <span class="bg-blue-700 text-white text-[8px] px-1.5 py-0.5 rounded ml-1">STABLE</span></h1>
-</div>
-
 <div class="flex gap-2 mb-2 bg-white p-1.5 rounded-2xl shadow border-2 border-slate-200 items-center">
-<button onclick="startScanning()" class="bg-blue-600 text-white rounded-2xl flex items-center justify-center cam-btn-v40">📷</button>
+<button onclick="startScanning()" class="bg-blue-600 text-white rounded-2xl cam-btn-v40">📷</button>
+
+<input type="text" id="manualInput" placeholder="输入/扫码枪..."
+class="flex-1 border-2 border-blue-500 rounded-xl px-2 h-10 font-bold outline-none text-sm" />
 </div>
 
 <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
-<div class="p-4 flex justify-between items-center bg-slate-900 text-white border-b-2 border-blue-500">
-<span class="font-bold text-blue-400">正在扫描...</span>
-<button onclick="stopScanning()" class="bg-red-600 px-8 py-2 rounded-full font-bold">关闭</button>
-</div>
-
-<div class="relative flex-1 overflow-hidden bg-black">
 <video id="v" class="w-full h-full object-cover" playsinline muted autoplay></video>
-<div class="scan-frame"><div class="scan-line"></div></div>
-</div>
 </div>
 
 <script>
-// ====== ZXING 强化配置 ======
-const hints = new Map();
-hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-  ZXing.BarcodeFormat.EAN_13,
-  ZXing.BarcodeFormat.CODE_128,
-  ZXing.BarcodeFormat.CODE_39
-]);
+const zxing = new ZXing.BrowserMultiFormatReader();
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-const zxing = new ZXing.BrowserMultiFormatReader(hints);
+let lastScan = "";
+let lastScanTime = 0;
 
-let scanLock = false;
-
-// ====== ROI裁剪Canvas ======
-const canvas = document.createElement('canvas');
-const ctx = canvas.getContext('2d');
-
-async function startScanning() {
-  const scanUI = document.getElementById('scanUI');
-  const video = document.getElementById('v');
-  scanUI.style.display = 'flex';
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    });
-
-    video.srcObject = stream;
-    await video.play();
-
-    scanLock = false;
-
-    requestAnimationFrame(scanLoop);
-
-  } catch (err) {
-    alert(err.message);
-  }
+function handleBarcode(code){
+    console.log("扫码结果:", code);
 }
 
-function scanLoop() {
-  if (scanLock) return;
+/* 🚀 工业级扫码 */
+async function startScanning() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  const video = document.getElementById('v');
-
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
-
-    // 🎯 中间区域裁剪
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-
-    const rw = w * 0.6;
-    const rh = h * 0.3;
-    const rx = (w - rw) / 2;
-    const ry = (h - rh) / 2;
-
-    canvas.width = rw;
-    canvas.height = rh;
-
-    ctx.drawImage(video, rx, ry, rw, rh, 0, 0, rw, rh);
+    const videoEl = document.getElementById('v');
+    document.getElementById('scanUI').style.display = 'flex';
 
     try {
-      const result = zxing.decodeFromCanvas(canvas);
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } }
+        });
 
-      if (result) {
-        scanLock = true;
+        videoEl.srcObject = stream;
+        await videoEl.play();
 
+        zxing.decodeFromVideoDevice(null, videoEl, (result) => {
+            if (result) {
+                const code = result.getText();
+                const now = Date.now();
+
+                if (code === lastScan && now - lastScanTime < 1500) return;
+
+                lastScan = code;
+                lastScanTime = now;
+
+                if (navigator.vibrate) navigator.vibrate(80);
+
+                handleBarcode(code);
+            }
+        });
+
+    } catch (err) {
+        alert("相机异常: " + err.message);
         stopScanning();
-
-        let code = result.getText();
-        code = code.replace(/\s+/g, '').trim();
-
-        handleBarcode(code, true);
-        return;
-      }
-
-    } catch (e) {
-      // 忽略识别失败
     }
-  }
-
-  requestAnimationFrame(scanLoop);
 }
 
 function stopScanning() {
-  scanLock = true;
+    zxing.reset();
+    const videoEl = document.getElementById('v');
 
-  const video = document.getElementById('v');
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(t => t.stop());
-    video.srcObject = null;
-  }
+    if (videoEl.srcObject) {
+        videoEl.srcObject.getTracks().forEach(track => track.stop());
+        videoEl.srcObject = null;
+    }
 
-  document.getElementById('scanUI').style.display = 'none';
-}
-
-// ====== 示例回调（不动你原逻辑） ======
-function handleBarcode(code) {
-  alert("扫码成功: " + code);
+    document.getElementById('scanUI').style.display = 'none';
+    lastScan = "";
+    lastScanTime = 0;
 }
 </script>
 
