@@ -18,10 +18,9 @@
         .row-focus { background-color: #fef08a !important; outline: 6px solid #ef4444; outline-offset: -6px; }
         #toast { position: fixed; top: 15%; left: 50%; transform: translateX(-50%); color: white; padding: 20px; border-radius: 20px; z-index: 10000; display: none; font-weight: 900; text-align: center; width: 80%; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
         #colModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; }
-        /* 扫描框动画 */
         .scan-frame { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 160px; border: 4px solid #3b82f6; border-radius: 20px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.7); z-index: 10; pointer-events: none; }
-        .scan-line { position: absolute; width: 100%; height: 4px; background: #3b82f6; top: 0; animation: scanLineMove 1.2s infinite linear; box-shadow: 0 0 15px #3b82f6; }
-        @keyframes scanLineMove { 0% { top: 5%; opacity: 1; } 100% { top: 95%; opacity: 1; } }
+        .scan-line { position: absolute; width: 100%; height: 4px; background: #3b82f6; top: 0; animation: scanLineMove 1s infinite linear; box-shadow: 0 0 15px #3b82f6; }
+        @keyframes scanLineMove { 0% { top: 5%; } 100% { top: 95%; } }
         .giant-cam-btn { width: 100px !important; height: 100px !important; font-size: 50px !important; flex-shrink: 0; box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5); border: 4px solid white; }
     </style>
 </head>
@@ -32,7 +31,7 @@
         <div class="bg-white w-11/12 max-h-[85vh] rounded-3xl p-6 overflow-auto border-4 border-slate-900 shadow-2xl">
             <h2 class="text-2xl font-black mb-4 border-b-2 pb-2 text-center">列管理 / Gestión</h2>
             <div id="colList" class="space-y-2 mb-6"></div>
-            <div class="flex gap-2 p-3 bg-slate-100 rounded-2xl border-2">
+            <div class="flex gap-2 p-3 bg-slate-100 rounded-2xl border-2 text-slate-800">
                 <input type="text" id="newColName" placeholder="新列名称..." class="flex-1 bg-transparent font-bold outline-none text-lg" />
                 <button onclick="addColumn()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">添加</button>
             </div>
@@ -72,7 +71,7 @@
 
     <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
         <div class="p-4 flex justify-between items-center bg-slate-900 text-white border-b-2 border-blue-500">
-            <span class="font-bold text-blue-400">极速扫描 (720P 均衡模式)</span>
+            <span class="font-bold text-red-500">暴力解码模式 (全格式开启)</span>
             <button onclick="stopScanning()" class="bg-red-600 px-10 py-3 rounded-full font-black">退出</button>
         </div>
         <div class="relative flex-1 overflow-hidden bg-black">
@@ -82,7 +81,7 @@
     </div>
 
     <script>
-        const VER = "SR_V50_STABLE";
+        const VER = "SR_V50_FINAL_POWER";
         let db = JSON.parse(localStorage.getItem(VER+'_DATA')) || [];
         let columns = JSON.parse(localStorage.getItem(VER+'_COLS')) || [];
         let widths = JSON.parse(localStorage.getItem(VER+'_W')) || {};
@@ -90,17 +89,15 @@
         let lastScannedCode = "";
         let lastScannedTime = 0;
 
+        // --- 灵敏度暴力强化逻辑 ---
         const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-            ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
-            ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.UPC_A, 
-            ZXing.BarcodeFormat.UPC_E
-        ]);
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        // 不再限制格式，允许引擎尝试所有可能性
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true); 
+        hints.set(ZXing.DecodeHintType.PURE_BARCODE, false); 
         
         const zxing = new ZXing.BrowserMultiFormatReader(hints);
-        // 调配解码间隔：250ms 是性能和灵敏度的最佳平衡点
-        zxing.timeBetweenDecodingAttempts = 250; 
+        // 设为 0，取消所有人为延迟，让引擎跑满帧
+        zxing.timeBetweenDecodingAttempts = 0; 
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(isSuccess) {
@@ -119,26 +116,29 @@
                 let backId = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('后置'))?.deviceId;
                 if (!backId && devices.length > 0) backId = devices[devices.length - 1].deviceId;
 
-                // 调配：使用 1280x720，既保证清晰度又减轻计算负担
+                // 使用 720P 保持高效计算
                 const constraints = {
                     video: { 
                         deviceId: backId, 
                         facingMode: "environment",
                         width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        height: { ideal: 720 },
+                        // 强制开启自动连续对焦
+                        focusMode: "continuous"
                     }
                 };
 
-                zxing.decodeFromConstraints(constraints, 'v', (res) => {
+                zxing.decodeFromConstraints(constraints, 'v', (res, err) => {
                     if (res) {
                         const code = res.getText();
                         const now = Date.now();
-                        if (code === lastScannedCode && (now - lastScannedTime < 2000)) return;
+                        // 防抖设为 2.5秒，避免扫太快导致误操作
+                        if (code === lastScannedCode && (now - lastScannedTime < 2500)) return;
                         lastScannedCode = code; lastScannedTime = now;
                         handleBarcode(code, true);
                     }
                 });
-            } catch (err) { showMsg("相机开启失败"); stopScanning(); }
+            } catch (err) { showMsg("无法启动相机"); stopScanning(); }
         }
 
         function stopScanning() { zxing.reset(); document.getElementById('scanUI').style.display = 'none'; }
@@ -161,11 +161,11 @@
                 }
                 if(fromCam) stopScanning();
             } else {
-                playSound(false); showMsg("⚠️ 未找到: " + target);
+                playSound(false); showMsg("⚠️ 库中未找到: " + target);
             }
         }
 
-        // --- 基础逻辑 ---
+        // --- 基础逻辑保持不变 ---
         document.getElementById('fileInput').onchange = (e) => {
             const file = e.target.files[0]; if (!file) return;
             const r = new FileReader();
@@ -176,7 +176,7 @@
                 if (json.length) {
                     columns = Object.keys(json[0]);
                     if (!columns.includes('实际数量')) columns.unshift('实际数量');
-                    db = json; push(); render(); showMsg("✅ 数据加载成功", false);
+                    db = json; push(); render(); showMsg("✅ 成功加载", false);
                 }
             };
             r.readAsArrayBuffer(file);
@@ -193,12 +193,12 @@
         function closeColModal() { document.getElementById('colModal').style.display = 'none'; }
         function renderColList() {
             document.getElementById('colList').innerHTML = columns.map((c, i) => `
-                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border">
+                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border text-slate-800">
                     <span class="font-bold text-lg">${c}</span>
-                    <div class="flex gap-2"><button onclick="moveCol(${i},-1)" class="p-3 border rounded shadow-sm">⬆️</button><button onclick="moveCol(${i},1)" class="p-3 border rounded shadow-sm">⬇️</button><button onclick="deleteCol('${c}')" class="p-3 text-red-600 font-bold">删除</button></div>
+                    <div class="flex gap-2"><button onclick="moveCol(${i},-1)" class="p-3 border rounded">⬆️</button><button onclick="moveCol(${i},1)" class="p-3 border rounded">⬇️</button><button onclick="deleteCol('${c}')" class="p-3 text-red-600 font-bold">删除</button></div>
                 </div>`).join('');
         }
-        function moveCol(i, d) { let t = i + d; if (t>=0 && t<columns.length) { [columns[i], columns[t]] = [columns[t], columns[i]]; renderColList(); push(); render(); } }
+        function moveCol(i, d) { let t = i + d; if (t>=0 && t<columns.length) { [columns[i], columns[target]] = [columns[t], columns[i]]; renderColList(); push(); render(); } }
         function addColumn() {
             const n = document.getElementById('newColName').value.trim();
             if (n && !columns.includes(n)) { columns.push(n); db.forEach(r => r[n] = ""); push(); renderColList(); render(); }
@@ -220,7 +220,7 @@
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Stock");
             XLSX.writeFile(wb, `Stock_V50_${new Date().toLocaleDateString()}.xlsx`);
         }
-        function hardReset() { if(confirm("⚠️ 注意：这将永久清空所有库存数据！确定吗？")) { localStorage.clear(); location.reload(); } }
+        function hardReset() { if(confirm("⚠️ 注意：这将永久清空所有库存数据！")) { localStorage.clear(); location.reload(); } }
         manualInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleBarcode(manualInput.value); });
         if (columns.length) render();
     </script>
