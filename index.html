@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>SuperRapido V50</title>
+    <title>SuperRapido V50 Ultra</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -88,13 +88,12 @@
         let lastScannedCode = "";
         let lastScannedTime = 0;
 
-        // --- 核心强化配置 ---
         const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // 开启暴力解码
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
         hints.set(ZXing.DecodeHintType.CHARACTER_SET, 'utf-8');
         
         const zxing = new ZXing.BrowserMultiFormatReader(hints);
-        zxing.timeBetweenDecodingAttempts = 0; // 零延迟轮询
+        zxing.timeBetweenDecodingAttempts = 0; 
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(isSuccess) {
@@ -118,127 +117,11 @@
                         deviceId: backId, 
                         facingMode: "environment",
                         width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        zoom: 1.5 // 适当拉近，针对“远一点”的情况
+                        height: { ideal: 720 }
                     }
                 };
 
-                // 启动解码
                 zxing.decodeFromConstraints(constraints, 'v', (res) => {
                     if (res) {
                         const code = res.getText();
-                        const now = Date.now();
-                        if (code === lastScannedCode && (now - lastScannedTime < 2500)) return;
-                        lastScannedCode = code; lastScannedTime = now;
-                        handleBarcode(code, true);
-                    }
-                });
-
-                // --- 针对安卓的底层强化逻辑 ---
-                const videoEl = document.getElementById('v');
-                setTimeout(() => {
-                    const track = videoEl.srcObject?.getVideoTracks()[0];
-                    if (track) {
-                        const capabilities = track.getCapabilities();
-                        // 1. 强制每2.5秒重新激活一次对焦，防止安卓对焦休眠
-                        setInterval(() => {
-                            if (capabilities.focusMode?.includes('continuous')) {
-                                track.applyConstraints({advanced: [{focusMode: 'continuous'}]}).catch(()=>{});
-                            }
-                        }, 2500);
-                        
-                        // 2. 尝试打开手电筒提升对比度（部分环境适用）
-                        if (capabilities.torch) {
-                            // track.applyConstraints({advanced: [{torch: true}]}); // 如果需要自动开灯可取消注释
-                        }
-                    }
-                }, 1000);
-
-            } catch (err) { showMsg("相机未能启动"); stopScanning(); }
-        }
-
-        function stopScanning() { zxing.reset(); document.getElementById('scanUI').style.display = 'none'; }
-
-        function handleBarcode(code, fromCam = false) {
-            if(!code) return;
-            const target = String(code).trim().toLowerCase();
-            manualInput.value = '';
-            const idx = db.findIndex(row => Object.values(row).some(v => String(v).trim().toLowerCase() === target));
-            
-            if (idx !== -1) {
-                playSound(true); render();
-                const rowEl = document.getElementById(`r-${idx}`);
-                const inputEl = document.getElementById(`in-${idx}-实际数量`);
-                document.querySelectorAll('tr').forEach(tr => tr.classList.remove('row-focus'));
-                if (rowEl) {
-                    rowEl.classList.add('row-focus');
-                    rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    setTimeout(() => { if(inputEl){inputEl.focus(); inputEl.select();} }, 300);
-                }
-                if(fromCam) stopScanning();
-            } else {
-                playSound(false); showMsg("⚠️ 库中未找到条码: " + target);
-            }
-        }
-
-        // --- 数据管理逻辑 ---
-        document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0]; if (!file) return;
-            const r = new FileReader();
-            r.onload = (ev) => {
-                const data = new Uint8Array(ev.target.result);
-                const wb = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-                if (json.length) {
-                    columns = Object.keys(json[0]);
-                    if (!columns.includes('实际数量')) columns.unshift('实际数量');
-                    db = json; push(); render(); showMsg("✅ 数据同步成功", false);
-                }
-            };
-            r.readAsArrayBuffer(file);
-        };
-        function render() {
-            const h = document.getElementById('tHead'); const b = document.getElementById('tBody');
-            if (!columns.length) return;
-            h.innerHTML = `<tr>${columns.map(c => `<th id="th-${c}" style="width: ${widths[c] || 130}px">${c}<div class="resizer" ontouchstart="initResize(event, '${c}')"></div></th>`).join('')}</tr>`;
-            b.innerHTML = db.map((row, rIdx) => `<tr id="r-${rIdx}">${columns.map(c => `<td><input id="in-${rIdx}-${c}" type="${c==='实际数量'?'number':'text'}" value="${row[c]||''}" class="${c==='实际数量'?'qty-input':'p-2 w-full text-[13px] outline-none bg-transparent'}" onchange="saveVal(${rIdx},'${c}',this.value)" /></td>`).join('')}</tr>`).join('');
-        }
-        function saveVal(r, c, v) { db[r][c] = v; push(); }
-        function push() { localStorage.setItem(VER+'_DATA', JSON.stringify(db)); localStorage.setItem(VER+'_COLS', JSON.stringify(columns)); localStorage.setItem(VER+'_W', JSON.stringify(widths)); }
-        function openColModal() { document.getElementById('colModal').style.display = 'flex'; renderColList(); }
-        function closeColModal() { document.getElementById('colModal').style.display = 'none'; }
-        function renderColList() {
-            document.getElementById('colList').innerHTML = columns.map((c, i) => `
-                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border">
-                    <span class="font-bold text-lg text-slate-700">${c}</span>
-                    <div class="flex gap-2"><button onclick="moveCol(${i},-1)" class="p-3 border rounded shadow-sm bg-white">⬆️</button><button onclick="moveCol(${i},1)" class="p-3 border rounded shadow-sm bg-white">⬇️</button><button onclick="deleteCol('${c}')" class="p-3 text-red-600 font-bold">删除</button></div>
-                </div>`).join('');
-        }
-        function moveCol(i, d) { let t = i + d; if (t>=0 && t<columns.length) { [columns[i], columns[t]] = [columns[t], columns[i]]; renderColList(); push(); render(); } }
-        function addColumn() {
-            const n = document.getElementById('newColName').value.trim();
-            if (n && !columns.includes(n)) { columns.push(n); db.forEach(r => r[n] = ""); push(); renderColList(); render(); }
-        }
-        function deleteCol(n) { if(confirm("确定删除该列？")) { columns = columns.filter(c => c !== n); push(); renderColList(); render(); } }
-        function initResize(e, c) {
-            const sX = e.touches[0].pageX; const sW = widths[c] || 130;
-            const onM = (ev) => { widths[c] = Math.max(50, sW + (ev.touches[0].pageX - sX)); render(); };
-            document.addEventListener('touchmove', onM);
-            document.addEventListener('touchend', () => document.removeEventListener('touchmove', onM), {once:true});
-        }
-        function showMsg(txt, err=true) {
-            const el = document.getElementById('toast'); el.innerText = txt;
-            el.style.display = 'block'; el.style.background = err ? '#ef4444' : '#10b981';
-            setTimeout(() => el.style.display = 'none', 2000);
-        }
-        function exportExcel() {
-            const ws = XLSX.utils.json_to_sheet(db, { header: columns });
-            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-            XLSX.writeFile(wb, `Stock_V50_${new Date().toLocaleDateString()}.xlsx`);
-        }
-        function hardReset() { if(confirm("⚠️ 确定清空所有数据重新开始吗？")) { localStorage.clear(); location.reload(); } }
-        manualInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleBarcode(manualInput.value); });
-        if (columns.length) render();
-    </script>
-</body>
-</html>
+                        handleBarcode(code,
