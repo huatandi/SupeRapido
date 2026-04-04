@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>V50 PRO FINAL</title>
+
+<title>V50 PRO FINAL FIX</title>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
@@ -11,12 +12,48 @@
 
 <style>
 body{background:#f1f5f9;font-family:sans-serif}
-.table-container{background:#fff;border:2px solid #1e293b;height:55vh;overflow:auto;border-radius:12px}
+
+.btn{
+padding:12px 18px;
+font-size:18px;
+border-radius:10px;
+margin:5px;
+}
+
+.table-container{
+background:#fff;
+border:2px solid #1e293b;
+height:60vh;
+overflow:auto;
+border-radius:12px;
+}
+
 th{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px}
 td{border:1px solid #ddd}
-.qty-input{width:100%;height:60px;font-size:22px;text-align:center;border:3px solid #2563eb}
+
+.qty-input{
+width:100%;
+height:60px;
+font-size:22px;
+text-align:center;
+border:3px solid #2563eb
+}
+
 .row-focus{background:#fef08a}
-#toast{position:fixed;top:15%;left:50%;transform:translateX(-50%);color:#fff;padding:15px;border-radius:10px;display:none;z-index:9999}
+
+#toast{
+position:fixed;
+top:10%;
+left:50%;
+transform:translateX(-50%);
+color:#fff;
+padding:15px;
+border-radius:10px;
+display:none;
+z-index:9999
+}
+
+.dragging{opacity:0.5;background:#ddd}
 </style>
 </head>
 
@@ -24,20 +61,25 @@ td{border:1px solid #ddd}
 
 <div id="toast"></div>
 
-<h2 class="text-xl font-bold mb-2">扫码盘点（最终版）</h2>
+<h2 class="text-xl font-bold mb-2">扫码盘点（稳定修复版）</h2>
 
-<button onclick="startScanning()" class="bg-blue-600 text-white px-4 py-2 rounded">📷 扫码</button>
+<!-- 顶部操作区 -->
+<div class="flex flex-wrap items-center">
 
-<input id="manualInput" placeholder="手动输入" class="border p-2 ml-2">
-<button onclick="manual()">确认</button>
+<button onclick="startScanning()" class="btn bg-blue-600 text-white">📷 扫码</button>
 
-<br><br>
+<input id="manualInput" placeholder="输入条码"
+class="border p-3 text-lg rounded w-48">
 
-<input type="file" id="fileInput">
+<button onclick="manual()" class="btn bg-gray-700 text-white">确认</button>
 
-<br><br>
+<input type="file" id="fileInput" class="btn">
 
-<button onclick="openColModal()" class="bg-black text-white px-3 py-1">列管理</button>
+<button onclick="exportExcel()" class="btn bg-green-600 text-white">导出</button>
+
+<button onclick="openColModal()" class="btn bg-black text-white">列管理</button>
+
+</div>
 
 <div class="table-container mt-2">
 <table>
@@ -46,13 +88,10 @@ td{border:1px solid #ddd}
 </table>
 </div>
 
-<br>
-<button onclick="exportExcel()" class="bg-green-600 text-white px-4 py-2">导出Excel</button>
-
 <!-- 列管理 -->
-<div id="colModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);">
+<div id="colModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8)">
 <div style="background:#fff;margin:10% auto;padding:20px;width:90%">
-<h3>拖拽列排序</h3>
+<h3>拖拽排序</h3>
 <div id="colList"></div>
 <button onclick="closeColModal()">完成</button>
 </div>
@@ -60,19 +99,18 @@ td{border:1px solid #ddd}
 
 <!-- 扫码 -->
 <div id="scanUI" style="display:none;position:fixed;inset:0;background:#000">
-<video id="video" style="width:100%;height:100%" autoplay muted playsinline></video>
-<button onclick="stopScanning()" style="position:absolute;top:20px;right:20px;background:red;color:#fff">退出</button>
+<video id="video" style="width:100%;height:100%" autoplay playsinline></video>
+<button onclick="stopScanning()" style="position:absolute;top:20px;right:20px;background:red;color:#fff;padding:10px">退出</button>
 </div>
 
 <script>
 
-let db=[],columns=[],dragIndex=null;
+let db=[],columns=[];
+let dragIndex=null;
 
-const normalize=v=>String(v).trim().toLowerCase();
-
-/* ===== Toast ===== */
+/* ===== toast ===== */
 function showToast(msg,color="#ef4444"){
-let t=document.getElementById("toast");
+let t=toast;
 t.innerText=msg;
 t.style.background=color;
 t.style.display="block";
@@ -81,19 +119,19 @@ setTimeout(()=>t.style.display="none",1500);
 
 /* ===== Excel ===== */
 fileInput.onchange=e=>{
-const f=e.target.files[0];
+let f=e.target.files[0];
 if(!f)return;
 
-const r=new FileReader();
+let r=new FileReader();
+
 r.onload=ev=>{
 try{
-const data=new Uint8Array(ev.target.result);
-const wb=XLSX.read(data,{type:'array'});
-const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
-
-if(!json.length){showToast("空文件");return;}
+let data=new Uint8Array(ev.target.result);
+let wb=XLSX.read(data,{type:'array'});
+let json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
 
 columns=Object.keys(json[0]);
+
 if(!columns.includes("实际数量")){
 columns.unshift("实际数量");
 json.forEach(r=>r["实际数量"]="");
@@ -103,8 +141,11 @@ db=json;
 save();
 render();
 
-}catch(e){showToast("文件错误");}
+}catch{
+showToast("文件错误");
+}
 };
+
 r.readAsArrayBuffer(f);
 };
 
@@ -123,54 +164,33 @@ onchange="edit(${i},'${c}',this.value)">
 </tr>`).join("");
 }
 
-/* ===== 编辑 ===== */
 function edit(i,c,v){db[i][c]=v;save();}
 
-/* ===== 扫码 ===== */
-const hints=new Map();
-hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
-ZXing.BarcodeFormat.CODE_128,
-ZXing.BarcodeFormat.EAN_13,
-ZXing.BarcodeFormat.EAN_8,
-ZXing.BarcodeFormat.UPC_A
-]);
-
-const reader=new ZXing.BrowserMultiFormatReader(hints);
-reader.timeBetweenDecodingAttempts=0;
-reader.delayBetweenScanAttempts=0;
-
-let last="",time=0;
+/* ===== 扫码（修复版） ===== */
+let codeReader=new ZXing.BrowserMultiFormatReader();
 
 function startScanning(){
 scanUI.style.display="block";
 
-reader.decodeFromConstraints({
-video:{
-facingMode:"environment",
-width:{ideal:1280},
-height:{ideal:720}
-}
-},"video",(res)=>{
-if(res){
-let code=res.getText();
-let now=Date.now();
-
-if(code===last && now-time<500)return;
-last=code;time=now;
-
-handle(code);
+codeReader.decodeFromVideoDevice(null,"video",(result,err)=>{
+if(result){
+handle(result.getText());
 }
 });
 }
 
-function stopScanning(){reader.reset();scanUI.style.display="none";}
+function stopScanning(){
+codeReader.reset();
+scanUI.style.display="none";
+}
 
 /* ===== 条码处理 ===== */
+function normalize(v){return String(v).trim().toLowerCase();}
+
 function handle(code){
-let t=normalize(code);
 
 let idx=db.findIndex(r=>
-Object.values(r).some(v=>normalize(v)==t)
+Object.values(r).some(v=>normalize(v)==normalize(code))
 );
 
 if(idx!=-1){
@@ -180,10 +200,8 @@ render();
 document.querySelectorAll("tr").forEach(tr=>tr.classList.remove("row-focus"));
 
 let row=document.getElementById("r-"+idx);
-if(row){
 row.classList.add("row-focus");
 row.scrollIntoView({block:"center"});
-}
 
 }else{
 navigator.vibrate&&navigator.vibrate(100);
@@ -205,32 +223,33 @@ XLSX.utils.book_append_sheet(wb,ws,"data");
 XLSX.writeFile(wb,"库存.xlsx");
 }
 
-/* ===== 本地存储 ===== */
+/* ===== 本地 ===== */
 function save(){
 localStorage.setItem("db",JSON.stringify(db));
 localStorage.setItem("columns",JSON.stringify(columns));
 }
 
-try{
 db=JSON.parse(localStorage.getItem("db"))||[];
 columns=JSON.parse(localStorage.getItem("columns"))||[];
-}catch(e){}
 
 if(columns.length)render();
 
-/* ===== 列管理 ===== */
+/* ===== 列拖拽（修复） ===== */
 function openColModal(){
 colModal.style.display="block";
 renderColList();
 }
-function closeColModal(){colModal.style.display="none";}
+
+function closeColModal(){
+colModal.style.display="none";
+}
 
 function renderColList(){
 colList.innerHTML=columns.map((c,i)=>`
 <div draggable="true"
-ondragstart="dragStart(event,${i})"
-ondragover="dragOver(event)"
-ondrop="dropCol(event,${i})"
+ondragstart="dragStart(${i},this)"
+ondragover="event.preventDefault()"
+ondrop="dropCol(${i})"
 style="padding:10px;border:1px solid #ccc;margin:5px;background:#f9f9f9">
 
 ☰ ${c}
@@ -239,16 +258,19 @@ style="padding:10px;border:1px solid #ccc;margin:5px;background:#f9f9f9">
 `).join("");
 }
 
-function dragStart(e,i){dragIndex=i;}
-function dragOver(e){e.preventDefault();}
+function dragStart(i,el){
+dragIndex=i;
+el.classList.add("dragging");
+}
 
-function dropCol(e,i){
+function dropCol(i){
 if(dragIndex===null)return;
 
 let item=columns.splice(dragIndex,1)[0];
 columns.splice(i,0,item);
 
 dragIndex=null;
+
 save();
 renderColList();
 render();
