@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>V50 ULTRA SPEED</title>
+    <title>V50 SPEED PRO</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,12 +16,29 @@
         .qty-input { width: 100%; height: 60px; border: 4px solid #2563eb !important; text-align: center; font-size: 2rem; font-weight: 900; color: #1e40af; border-radius: 8px; }
         .row-focus { background-color: #fef08a !important; outline: 6px solid #ef4444; outline-offset: -6px; }
         
-        /* 扫描界面核心优化 */
+        /* 扫描界面修复 */
         #scanUI { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
         #v { width: 100%; height: 100%; object-fit: cover; }
-        .scan-window { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 160px; border: 2px solid #3b82f6; border-radius: 10px; z-index: 20; box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); }
-        .scan-laser { position: absolute; width: 100%; height: 2px; background: #3b82f6; top: 50%; box-shadow: 0 0 15px #3b82f6; }
-        #toast { position: fixed; top: 15%; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 12px 24px; border-radius: 50px; z-index: 10001; display: none; font-weight: bold; }
+        
+        .scan-window { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); width: 85%; height: 180px; border: 2px solid #3b82f6; border-radius: 15px; z-index: 20; box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); overflow: hidden; }
+        
+        /* 修复后的扫描线：确保它在动 */
+        .scan-laser { 
+            position: absolute; 
+            width: 100%; 
+            height: 3px; 
+            background: #3b82f6; 
+            top: 0; 
+            box-shadow: 0 0 15px #3b82f6;
+            animation: laserMove 2s infinite linear; 
+        }
+        @keyframes laserMove {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
+        }
+
+        #toast { position: fixed; top: 15%; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 12px 24px; border-radius: 50px; z-index: 10001; display: none; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body class="p-2">
@@ -29,7 +46,7 @@
 
     <div class="flex flex-col h-screen">
         <div class="flex items-center justify-between mb-2">
-            <h1 class="text-2xl font-black italic">V50 <span class="text-blue-600">SPEED</span></h1>
+            <h1 class="text-2xl font-black italic text-slate-800 tracking-tighter">V50 <span class="text-blue-600">ULTRA</span></h1>
             <div class="flex gap-2">
                 <button onclick="openColModal()" class="bg-slate-700 text-white px-3 py-2 rounded-lg font-bold text-xs">列管理</button>
                 <button onclick="hardReset()" class="bg-red-500 text-white px-3 py-2 rounded-lg font-bold text-xs">重置</button>
@@ -37,7 +54,7 @@
         </div>
 
         <div class="bg-white p-3 rounded-2xl shadow-lg flex items-center gap-3 mb-3 border-2 border-slate-100">
-            <button onclick="startScanning()" class="w-20 h-20 bg-blue-600 rounded-full text-4xl shadow-lg active:scale-90 flex items-center justify-center text-white">📷</button>
+            <button onclick="startScanning()" class="w-20 h-20 bg-blue-600 rounded-full text-4xl shadow-lg active:scale-90 flex items-center justify-center text-white border-4 border-white">📷</button>
             <div class="flex-1">
                 <input type="text" id="manualInput" placeholder="手动录入..." class="w-full border-b-2 border-blue-200 p-2 text-lg font-bold outline-none mb-1" />
                 <button onclick="handleManual()" class="w-full bg-slate-800 text-white py-2 rounded-lg font-bold text-sm">确认 / OK</button>
@@ -49,7 +66,7 @@
         </div>
 
         <div class="mt-4 space-y-2">
-            <label class="block w-full bg-slate-100 text-slate-500 text-center py-3 rounded-xl font-bold text-xs cursor-pointer border-2 border-dashed">
+            <label class="block w-full bg-slate-100 text-slate-500 text-center py-4 rounded-xl font-bold text-xs cursor-pointer border-2 border-dashed">
                 📂 导入 EXCEL <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
             </label>
             <button onclick="exportExcel()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-black text-xl shadow-lg border-b-4 border-emerald-800 active:translate-y-1">保存导出 EXCEL</button>
@@ -58,85 +75,93 @@
 
     <div id="scanUI">
         <div class="p-4 flex justify-between items-center text-white z-50">
-            <span class="font-bold text-blue-400 italic text-sm">极速识别模式 (Only Barcode)</span>
-            <button onclick="stopScanning()" class="bg-red-600 px-6 py-2 rounded-full font-bold">关闭</button>
+            <div class="flex flex-col">
+                <span class="font-bold text-blue-400 italic">极速条码识别</span>
+                <span class="text-[10px] text-slate-400">请对准条形码中心</span>
+            </div>
+            <button onclick="stopScanning()" class="bg-red-600 px-8 py-3 rounded-2xl font-bold">关闭</button>
         </div>
         <div class="relative flex-1">
-            <video id="v" playsinline muted></video>
-            <div class="scan-window"><div class="scan-laser"></div></div>
+            <video id="v" playsinline muted autoplay></video>
+            <div class="scan-window">
+                <div class="scan-laser"></div>
+            </div>
         </div>
     </div>
 
     <div id="colModal" class="fixed inset-0 bg-black/80 z-[9999] hidden items-center justify-center">
         <div class="bg-white w-11/12 rounded-3xl p-6">
-            <h2 class="text-xl font-black mb-4">列管理</h2>
-            <div id="colList" class="space-y-2 mb-4"></div>
-            <div class="flex gap-2 mb-4"><input type="text" id="newColName" placeholder="新列名" class="flex-1 border p-2 rounded" /><button onclick="addColumn()" class="bg-blue-600 text-white px-4 rounded">加</button></div>
-            <button onclick="closeColModal()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold">保存返回</button>
+            <h2 class="text-xl font-black mb-4">列管理 / Columnas</h2>
+            <div id="colList" class="space-y-2 mb-4 max-h-[40vh] overflow-auto"></div>
+            <div class="flex gap-2 mb-4 border-t pt-4">
+                <input type="text" id="newColName" placeholder="新列名" class="flex-1 border p-2 rounded" />
+                <button onclick="addColumn()" class="bg-blue-600 text-white px-6 rounded font-bold">添加</button>
+            </div>
+            <button onclick="closeColModal()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold">保存并返回</button>
         </div>
     </div>
 
     <script>
-        const VER = "SR_V50_SPEED_V1";
+        const VER = "SR_V50_SPEED_FIXED";
         let db = [], columns = [], widths = {}, lastCode = "", lastTime = 0;
 
-        // 初始化
         function init() {
             db = JSON.parse(localStorage.getItem(VER+'_D')) || [];
             columns = JSON.parse(localStorage.getItem(VER+'_C')) || [];
             if(columns.length) render();
         }
 
-        // --- 极速算法核心配置 ---
         const hints = new Map();
-        // 限制只扫码常用的一维条码，排除二维码以提升速度
         hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
             ZXing.BarcodeFormat.CODE_128, 
             ZXing.BarcodeFormat.EAN_13, 
-            ZXing.BarcodeFormat.CODE_39
+            ZXing.BarcodeFormat.CODE_39,
+            ZXing.BarcodeFormat.UPC_A
         ]);
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
         const zxing = new ZXing.BrowserMultiFormatReader(hints);
-        zxing.timeBetweenDecodingAttempts = 20; // 极速探测
 
         async function startScanning() {
             document.getElementById('scanUI').style.display = 'flex';
+            const video = document.getElementById('v');
             try {
-                // 限制分辨率在 720p 以内，减少 CPU 像素处理量
                 const constraints = {
                     video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
                 };
                 
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                document.getElementById('v').srcObject = stream;
+                video.srcObject = stream;
+                
+                // 确保视频开始播放
+                video.onloadedmetadata = () => {
+                    video.play().catch(e => console.error("Play failed", e));
+                };
 
-                // 强制开启对焦补丁
-                const track = stream.getVideoTracks()[0];
-                const interval = setInterval(() => {
-                    if (track && track.getCapabilities()?.focusMode?.includes('continuous')) {
-                        track.applyConstraints({advanced: [{focusMode: 'continuous'}]}).catch(()=>{});
-                    }
-                }, 2000);
-
-                zxing.decodeFromVideoElement(document.getElementById('v'), (res, err) => {
+                zxing.decodeFromVideoElement(video, (res) => {
                     if (res) {
                         const code = res.getText();
                         const now = Date.now();
                         if (code !== lastCode || (now - lastTime > 1500)) {
                             lastCode = code; lastTime = now;
-                            clearInterval(interval);
                             handleBarcode(code, true);
                         }
                     }
                 });
-            } catch (err) { stopScanning(); alert("请检查摄像头权限"); }
+            } catch (err) { 
+                alert("摄像头打开失败: " + err.message); 
+                stopScanning(); 
+            }
         }
 
         function stopScanning() { 
             zxing.reset(); 
-            const stream = document.getElementById('v').srcObject;
-            if(stream) stream.getTracks().forEach(t => t.stop());
+            const video = document.getElementById('v');
+            const stream = video.srcObject;
+            if(stream) {
+                stream.getTracks().forEach(t => t.stop());
+                video.srcObject = null;
+            }
             document.getElementById('scanUI').style.display = 'none'; 
         }
 
@@ -160,24 +185,24 @@
             } else {
                 beep(false);
                 const t = document.getElementById('toast');
-                t.innerText = "⚠️ 未找到: " + target;
-                t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2000);
+                t.innerText = "❌ 未匹配条码: " + target;
+                t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000);
             }
         }
 
         function beep(ok) {
-            const ctx = new AudioContext();
-            const o = ctx.createOscillator(); const g = ctx.createGain();
-            o.connect(g); g.connect(ctx.destination);
-            o.frequency.value = ok ? 800 : 200;
-            g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
-            o.start(); o.stop(ctx.currentTime + 0.1);
+            try {
+                const ctx = new AudioContext();
+                const o = ctx.createOscillator(); const g = ctx.createGain();
+                o.connect(g); g.connect(ctx.destination);
+                o.frequency.value = ok ? 800 : 250;
+                g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+                o.start(); o.stop(ctx.currentTime + 0.1);
+            } catch(e){}
         }
 
-        // 文件导入功能
         document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             const r = new FileReader();
             r.onload = (ev) => {
                 const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
@@ -205,23 +230,22 @@
             localStorage.setItem(VER+'_C', JSON.stringify(columns)); 
         }
 
-        // 列管理功能
         function openColModal() { document.getElementById('colModal').style.display = 'flex'; renderColList(); }
         function closeColModal() { document.getElementById('colModal').style.display = 'none'; render(); }
         function renderColList() {
             document.getElementById('colList').innerHTML = columns.map((c, i) => `
-                <div class="flex items-center justify-between bg-slate-100 p-2 rounded">
-                    <span class="font-bold text-sm">${c}</span>
-                    <div class="flex gap-1">
-                        <button onclick="moveCol(${i},-1)" class="p-1 border rounded bg-white">⬆️</button>
-                        <button onclick="moveCol(${i},1)" class="p-1 border rounded bg-white">⬇️</button>
-                        <button onclick="deleteCol('${c}')" class="p-1 text-red-500">×</button>
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border-2 mb-2">
+                    <span class="font-bold">${c}</span>
+                    <div class="flex gap-2">
+                        <button onclick="moveCol(${i},-1)" class="p-2 border rounded bg-white">⬆️</button>
+                        <button onclick="moveCol(${i},1)" class="p-2 border rounded bg-white">⬇️</button>
+                        <button onclick="deleteCol('${c}')" class="p-2 text-red-600 font-bold">×</button>
                     </div>
                 </div>`).join('');
         }
         function moveCol(i, d) { let t = i+d; if(t>=0 && t<columns.length) { [columns[i], columns[t]] = [columns[t], columns[i]]; renderColList(); push(); } }
         function addColumn() { const n = document.getElementById('newColName').value; if(n){columns.push(n); db.forEach(r=>r[n]=""); push(); renderColList();} }
-        function deleteCol(n) { columns=columns.filter(c=>c!==n); renderColList(); push(); }
+        function deleteCol(n) { if(confirm("确定？")){ columns=columns.filter(c=>c!==n); renderColList(); push(); } }
 
         function handleManual() { handleBarcode(document.getElementById('manualInput').value); document.getElementById('manualInput').value=''; }
         function exportExcel() {
