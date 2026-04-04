@@ -2,34 +2,37 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>飞速盘点 S1.2 - 极速库存管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>飞速盘点 S1.3 - 极速库存管理</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
-            user-select: none;
         }
         body { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             min-height: 100vh;
+            padding: 8px;
         }
         .main-card {
             background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             overflow: hidden;
+            max-width: 600px;
+            margin: 0 auto;
         }
         .table-container { 
             background: white; 
-            border: 2px solid #e2e8f0; 
-            height: 55vh; 
+            border: 1px solid #e2e8f0; 
+            height: 50vh; 
             overflow: auto; 
-            border-radius: 16px; 
+            border-radius: 12px; 
             -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y pinch-zoom;
         }
         table { 
             border-collapse: separate; 
@@ -46,8 +49,8 @@
             color: white; 
             border-right: 1px solid #334155; 
             border-bottom: 2px solid #3b82f6; 
-            padding: 12px; 
-            font-size: 13px; 
+            padding: 10px; 
+            font-size: 12px; 
             text-align: left;
             font-weight: 600;
         }
@@ -56,7 +59,7 @@
             right: 0; 
             top: 0; 
             height: 100%; 
-            width: 25px; 
+            width: 20px; 
             cursor: col-resize; 
             z-index: 60;
             background: rgba(255,255,255,0.1);
@@ -69,24 +72,25 @@
         }
         .qty-input { 
             width: 100%; 
-            height: 65px; 
-            border: 3px solid #3b82f6 !important; 
+            height: 55px; 
+            border: 2px solid #3b82f6 !important; 
             text-align: center; 
-            font-size: 2rem; 
+            font-size: 1.5rem; 
             font-weight: 900; 
             color: #1e40af; 
-            border-radius: 12px; 
+            border-radius: 10px; 
             background: #f0f9ff; 
             transition: all 0.2s;
         }
         .qty-input:focus {
             background: #fef9c3;
-            transform: scale(1.02);
+            transform: scale(1.01);
             border-color: #ef4444 !important;
+            outline: none;
         }
         .row-focus { 
             background: linear-gradient(90deg, #fef08a 0%, #fde047 100%) !important;
-            animation: highlight 0.5s ease;
+            animation: highlight 0.3s ease;
         }
         @keyframes highlight {
             0% { background: #fff; }
@@ -99,16 +103,16 @@
             transform: translateX(-50%); 
             background: #1f2937;
             color: white; 
-            padding: 14px 24px; 
-            border-radius: 60px; 
+            padding: 10px 20px; 
+            border-radius: 40px; 
             z-index: 10000; 
             display: none; 
             font-weight: bold; 
             text-align: center; 
             white-space: nowrap;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
             pointer-events: none;
-            font-size: 15px;
+            font-size: 14px;
             backdrop-filter: blur(10px);
         }
         #colModal { 
@@ -123,10 +127,10 @@
         }
         .modal-content {
             background: white;
-            border-radius: 32px;
+            border-radius: 24px;
             max-width: 90%;
-            width: 400px;
-            max-height: 80vh;
+            width: 350px;
+            max-height: 70vh;
             overflow: auto;
         }
         .scan-frame { 
@@ -134,10 +138,10 @@
             top: 50%; 
             left: 50%; 
             transform: translate(-50%, -50%); 
-            width: 85%; 
-            height: 250px; 
-            border: 3px solid #3b82f6; 
-            border-radius: 20px; 
+            width: 80%; 
+            height: 220px; 
+            border: 2px solid #3b82f6; 
+            border-radius: 16px; 
             box-shadow: 0 0 0 2000px rgba(0,0,0,0.7); 
             z-index: 10; 
             pointer-events: none; 
@@ -145,32 +149,30 @@
         .scan-line { 
             position: absolute; 
             width: 100%; 
-            height: 3px; 
+            height: 2px; 
             background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
             top: 0; 
             animation: scanLineMove 1.5s infinite ease-in-out; 
-            box-shadow: 0 0 20px #3b82f6;
+            box-shadow: 0 0 15px #3b82f6;
         }
         @keyframes scanLineMove { 
             0%, 100% { top: 5%; }
             50% { top: 95%; }
         }
-        .cam-btn { 
-            width: 85px; 
-            height: 85px; 
-            font-size: 45px; 
-            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-            box-shadow: 0 10px 30px rgba(59,130,246,0.4);
+        .btn-icon {
             transition: transform 0.1s ease;
+            font-size: 13px;
+            font-weight: bold;
+            white-space: nowrap;
         }
-        .cam-btn:active {
+        .btn-icon:active {
             transform: scale(0.95);
         }
         .col-item {
             background: white;
-            margin-bottom: 10px;
-            border-radius: 16px;
-            border: 2px solid #e2e8f0;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
             transition: all 0.2s;
             cursor: move;
             touch-action: none;
@@ -179,116 +181,133 @@
             opacity: 0.4;
             transform: scale(0.98);
             background: #dbeafe;
-            border-color: #3b82f6;
-        }
-        .col-item:active {
-            cursor: grabbing;
-        }
-        .drag-handle {
-            cursor: grab;
-            touch-action: none;
-        }
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-        @media (max-width: 640px) {
-            .qty-input { height: 55px; font-size: 1.5rem; }
-            .cam-btn { width: 70px; height: 70px; font-size: 35px; }
-            th { padding: 8px; font-size: 11px; }
         }
         .version-badge {
             background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 16px;
+            font-size: 10px;
             font-weight: bold;
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .action-btn {
+            padding: 10px 4px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+            transition: all 0.1s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @media (max-width: 480px) {
+            .action-btn {
+                font-size: 10px;
+                padding: 8px 2px;
+            }
+            .qty-input { height: 48px; font-size: 1.2rem; }
+            .main-card { border-radius: 16px; }
+            body { padding: 6px; }
         }
     </style>
 </head>
-<body class="p-3">
+<body>
     <div id="toast"></div>
 
     <div id="colModal">
-        <div class="modal-content p-6">
-            <h2 class="text-2xl font-bold mb-4 text-center">📋 列管理</h2>
-            <p class="text-xs text-gray-500 text-center mb-4">💡 长按拖动排序 | 点击按钮删除</p>
-            <div id="colList" class="space-y-2 mb-6 max-h-96 overflow-auto"></div>
-            <div class="flex gap-2 p-3 bg-gray-100 rounded-xl">
-                <input type="text" id="newColName" placeholder="新列名..." class="flex-1 bg-white rounded-lg px-3 py-2 font-bold outline-none" />
-                <button onclick="addColumn()" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold">添加</button>
+        <div class="modal-content p-5">
+            <h2 class="text-xl font-bold mb-3 text-center">📋 列管理</h2>
+            <p class="text-xs text-gray-500 text-center mb-3">💡 拖动排序 | 点击按钮删除</p>
+            <div id="colList" class="space-y-2 mb-4 max-h-80 overflow-auto"></div>
+            <div class="flex gap-2 p-2 bg-gray-100 rounded-lg">
+                <input type="text" id="newColName" placeholder="新列名..." class="flex-1 bg-white rounded-lg px-3 py-2 font-bold text-sm outline-none" />
+                <button onclick="addColumn()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm">添加</button>
             </div>
-            <button onclick="closeColModal()" class="w-full mt-5 bg-gray-900 text-white py-4 rounded-xl font-bold text-lg">完成</button>
+            <button onclick="closeColModal()" class="w-full mt-4 bg-gray-900 text-white py-3 rounded-xl font-bold text-base">完成</button>
         </div>
     </div>
 
     <div class="main-card">
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-black tracking-tight">🚀 飞速盘点</h1>
-                    <div class="version-badge mt-1 inline-block">S1.2</div>
+                    <h1 class="text-2xl font-black tracking-tight">🚀 飞速盘点</h1>
+                    <div class="version-badge inline-block mt-0.5">S1.3</div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="openColModal()" class="bg-white/20 backdrop-blur px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition">
-                        📊 列管理
-                    </button>
-                    <button onclick="hardReset()" class="bg-red-500/80 backdrop-blur px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition">
-                        🗑️ 重置
-                    </button>
+                <div class="text-right text-xs opacity-90">
+                    极速扫码
                 </div>
             </div>
         </div>
 
-        <div class="p-4">
-            <div class="flex gap-3 mb-4">
-                <button id="scanBtn" class="cam-btn bg-blue-600 text-white rounded-2xl active:scale-95 flex items-center justify-center">
+        <div class="p-3">
+            <!-- 扫码和输入区域 -->
+            <div class="flex gap-2 mb-3">
+                <button id="scanBtn" class="bg-blue-600 text-white rounded-xl active:scale-95 flex items-center justify-center" style="width: 70px; height: 70px; font-size: 32px;">
                     📷
                 </button>
-                <div class="flex-1 space-y-2">
-                    <input type="text" id="manualInput" placeholder="📱 手动输入或扫描条码..." 
-                        class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold text-lg focus:border-blue-500 outline-none" />
-                    <button id="confirmBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-lg active:scale-95 transition shadow-lg">
-                        ✅ 确认
-                    </button>
-                    <label class="block text-center bg-gray-100 py-2 rounded-xl text-sm font-bold active:scale-95 transition cursor-pointer">
-                        📂 导入 Excel <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
-                    </label>
+                <div class="flex-1">
+                    <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." 
+                        class="w-full border-2 border-gray-300 rounded-xl px-3 py-2 font-bold text-base focus:border-blue-500 outline-none" />
                 </div>
             </div>
+            
+            <!-- 按钮组：确认 + 列管理 + 重置 + 导入 2行2列布局 -->
+            <div class="btn-group mb-3">
+                <button id="confirmBtn" class="action-btn bg-blue-600 text-white shadow-md">
+                    ✅ 确认
+                </button>
+                <button onclick="openColModal()" class="action-btn bg-gray-700 text-white shadow-md">
+                    📊 列管理
+                </button>
+                <button onclick="hardReset()" class="action-btn bg-red-600 text-white shadow-md">
+                    🗑️ 重置
+                </button>
+                <label class="action-btn bg-emerald-600 text-white shadow-md cursor-pointer">
+                    📂 导入 <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
+                </label>
+            </div>
 
-            <div class="table-container">
-                <table id="mainTable">
+            <!-- 表格区域（支持双指缩放） -->
+            <div class="table-container" id="tableContainer">
+                <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom;">
                     <thead id="tHead"></thead>
                     <tbody id="tBody"></tbody>
                 </table>
             </div>
             
-            <button onclick="exportExcel()" class="mt-4 w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-xl shadow-lg active:scale-95 transition">
+            <!-- 导出按钮 -->
+            <button onclick="exportExcel()" class="mt-3 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-base shadow-lg active:scale-95 transition">
                 💾 导出 Excel
             </button>
         </div>
     </div>
 
     <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
-        <div class="p-4 flex justify-between items-center bg-gradient-to-r from-gray-900 to-black text-white">
-            <span class="font-bold text-blue-400">🔍 扫描模式 - 请对准条码</span>
-            <button onclick="stopScanning()" class="bg-red-600 px-8 py-2 rounded-full font-bold active:scale-95 transition">关闭</button>
+        <div class="p-3 flex justify-between items-center bg-gradient-to-r from-gray-900 to-black text-white">
+            <span class="font-bold text-blue-400 text-sm">🔍 扫描模式 - 对准条码</span>
+            <button onclick="stopScanning()" class="bg-red-600 px-6 py-2 rounded-full font-bold text-sm active:scale-95 transition">关闭</button>
         </div>
         <div class="relative flex-1 bg-black">
             <video id="video" class="w-full h-full object-cover" playsinline muted autoplay></video>
             <div class="scan-frame">
                 <div class="scan-line"></div>
             </div>
-            <div class="absolute bottom-10 left-0 right-0 text-center">
-                <div class="bg-black/60 backdrop-blur text-white px-4 py-2 rounded-full inline-block text-sm font-bold">
-                    📷 将条码对准扫描框中心
+            <div class="absolute bottom-5 left-0 right-0 text-center">
+                <div class="bg-black/60 backdrop-blur text-white px-3 py-1 rounded-full inline-block text-xs font-bold">
+                    📷 将条码对准扫描框
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const VERSION = "S1.2";
+        const VERSION = "S1.3";
         const STORAGE_KEY = "FEISUPANDIAN_" + VERSION;
         
         let db = [];
@@ -298,7 +317,6 @@
         let reader = null;
         let lastCode = "";
         let lastTime = 0;
-        let dragState = { element: null, startY: 0, startIndex: -1 };
 
         // 加载数据
         function loadData() {
@@ -311,7 +329,7 @@
                     widths = data.widths || {};
                 }
                 if (!columns.length) {
-                    columns = ['实际数量', '商品名称', '条码', '价格'];
+                    columns = ['实际数量', '商品名称', '编码', '价格'];
                     db = [];
                 }
                 if (!db.length) {
@@ -322,7 +340,7 @@
                 });
             } catch(e) {
                 console.error(e);
-                columns = ['实际数量', '商品名称', '条码', '价格'];
+                columns = ['实际数量', '商品名称', '编码', '价格'];
                 db = [];
             }
         }
@@ -376,7 +394,7 @@
             }
         }
 
-        // 处理条码
+        // 增强的条码/编码识别（支持多种匹配方式）
         function handleBarcode(code, fromCamera = false) {
             if (!code) return false;
             
@@ -390,16 +408,31 @@
             lastCode = codeStr;
             lastTime = now;
             
-            showToast(`识别到: ${codeStr.substring(0, 25)}`, false);
+            showToast(`识别到: ${codeStr.substring(0, 30)}`, false);
             
-            // 查找商品
+            // 增强查找：支持条码、编码、名称等多种字段匹配
             let foundIndex = -1;
+            let matchField = "";
+            
             for (let i = 0; i < db.length; i++) {
                 const row = db[i];
+                // 精确匹配
                 for (let key in row) {
                     const val = String(row[key] || '').trim();
                     if (val === codeStr) {
                         foundIndex = i;
+                        matchField = key;
+                        break;
+                    }
+                }
+                if (foundIndex !== -1) break;
+                
+                // 包含匹配（针对商品名称等）
+                for (let key in row) {
+                    const val = String(row[key] || '').trim().toLowerCase();
+                    if (val.includes(codeStr.toLowerCase()) && (key === '商品名称' || key === '名称' || key === '编码' || key === '条码')) {
+                        foundIndex = i;
+                        matchField = key;
                         break;
                     }
                 }
@@ -409,7 +442,7 @@
             if (foundIndex !== -1) {
                 playBeep(true);
                 vibrate();
-                showToast(`✅ 找到: ${db[foundIndex]['商品名称'] || codeStr}`, false);
+                showToast(`✅ 找到商品: ${db[foundIndex]['商品名称'] || db[foundIndex]['名称'] || codeStr}`, false);
                 
                 // 重新渲染并高亮
                 render();
@@ -460,18 +493,11 @@
                 // 强制使用后置摄像头
                 const constraints = {
                     video: {
-                        facingMode: { exact: "environment" }, // 强制后置
+                        facingMode: { exact: "environment" },
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     }
                 };
-                
-                // 降级方案：如果exact失败，使用ideal
-                try {
-                    await navigator.mediaDevices.getUserMedia(constraints);
-                } catch(e) {
-                    constraints.video.facingMode = "environment";
-                }
                 
                 reader = new ZXing.BrowserMultiFormatReader();
                 reader.timeBetweenDecodingAttempts = 150;
@@ -545,12 +571,12 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-8 text-gray-500">暂无数据，请导入Excel或添加列</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
                 return;
             }
             
             thead.innerHTML = `<tr>${columns.map(col => `
-                <th style="width: ${widths[col] || 140}px; position: relative;">
+                <th style="width: ${widths[col] || 130}px; position: relative;">
                     ${col}
                     <div class="resizer" 
                          ontouchstart="startResize(event, '${col}')"
@@ -570,7 +596,7 @@
                                     onfocus="this.select()"
                                     placeholder="0" />` :
                                 `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
-                                    class="w-full p-2 text-sm outline-none bg-transparent"
+                                    class="w-full p-2 text-xs outline-none bg-transparent"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
                          </td>
@@ -605,7 +631,7 @@
         function startResize(e, col) {
             e.preventDefault();
             const startX = e.touches[0].pageX;
-            resizeInfo = { col, startX, startWidth: widths[col] || 140 };
+            resizeInfo = { col, startX, startWidth: widths[col] || 130 };
         }
         
         function onResize(e, col) {
@@ -624,32 +650,31 @@
             }
         }
         
-        // 列管理 - 拖动排序
+        // 列管理
         function renderColList() {
             const container = document.getElementById('colList');
             container.innerHTML = columns.map((col, idx) => `
                 <div class="col-item p-3" draggable="true" data-index="${idx}" data-col="${col}">
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3 flex-1">
-                            <span class="drag-handle text-2xl cursor-move">☰</span>
-                            <span class="font-bold text-gray-700">${idx + 1}. ${col}</span>
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="drag-handle text-xl cursor-move">☰</span>
+                            <span class="font-bold text-sm">${idx + 1}. ${col}</span>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="moveColumnUp(${idx})" class="bg-blue-500 text-white px-3 py-1 rounded-lg text-sm active:scale-95">
+                        <div class="flex gap-1">
+                            <button onclick="moveColumnUp(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">
                                 ⬆️
                             </button>
-                            <button onclick="moveColumnDown(${idx})" class="bg-blue-500 text-white px-3 py-1 rounded-lg text-sm active:scale-95">
+                            <button onclick="moveColumnDown(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">
                                 ⬇️
                             </button>
-                            <button onclick="deleteColumn('${col}')" class="bg-red-500 text-white px-3 py-1 rounded-lg text-sm active:scale-95">
-                                删除
+                            <button onclick="deleteColumn('${col}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs">
+                                删
                             </button>
                         </div>
                     </div>
                 </div>
             `).join('');
             
-            // 添加拖动排序功能
             setupDragAndDrop();
         }
         
@@ -816,7 +841,7 @@
             if (confirm("⚠️ 确定清空所有数据吗？此操作不可恢复！")) {
                 localStorage.removeItem(STORAGE_KEY);
                 db = [];
-                columns = ['实际数量', '商品名称', '条码', '价格'];
+                columns = ['实际数量', '商品名称', '编码', '价格'];
                 widths = {};
                 saveData();
                 render();
@@ -862,7 +887,7 @@
             }
         };
         
-        console.log(`🚀 飞速盘点 ${VERSION} 已启动 - 后置摄像头模式已启用`);
+        console.log(`🚀 飞速盘点 ${VERSION} 已启动 - 支持双指缩放表格 | 增强编码识别`);
     </script>
 </body>
 </html>
