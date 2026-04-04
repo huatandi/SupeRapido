@@ -29,7 +29,7 @@
 
     <div id="colModal">
         <div class="bg-white w-11/12 max-h-[85vh] rounded-3xl p-6 overflow-auto border-4 border-slate-900 shadow-2xl">
-            <h2 class="text-2xl font-black mb-4 border-b-2 pb-2 text-center text-slate-800">列管理 / Columnas</h2>
+            <h2 class="text-2xl font-black mb-4 border-b-2 pb-2 text-center text-slate-800 italic">列管理 / Columnas</h2>
             <div id="colList" class="space-y-2 mb-6"></div>
             <div class="flex gap-2 p-3 bg-slate-100 rounded-2xl border-2">
                 <input type="text" id="newColName" placeholder="新列名..." class="flex-1 bg-transparent font-bold outline-none text-lg" />
@@ -43,8 +43,8 @@
         <div class="flex items-center justify-between mb-3 px-1">
             <h1 class="text-3xl font-black text-slate-900 tracking-tighter italic">V50</h1>
             <div class="flex flex-1 justify-end gap-3 ml-4">
-                <button onclick="openColModal()" class="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black text-sm shadow-md active:scale-95">列管理</button>
-                <button onclick="hardReset()" class="flex-1 bg-red-600 text-white py-3 rounded-xl font-black text-sm shadow-md active:scale-95">清空重置</button>
+                <button onclick="openColModal()" class="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black text-sm shadow-md">列管理</button>
+                <button onclick="hardReset()" class="flex-1 bg-red-600 text-white py-3 rounded-xl font-black text-sm shadow-md">清空重置</button>
             </div>
         </div>
 
@@ -146,6 +146,7 @@
                         }, 1200);
                     }
                 }, 1000);
+
             } catch (err) { alert("相机启动失败，请检查权限"); stopScanning(); }
         }
 
@@ -204,42 +205,34 @@
         }
 
         function saveVal(r, c, v) { db[r][c] = v; push(); }
-        
         function push() { 
             localStorage.setItem(VER+'_DATA', JSON.stringify(db)); 
             localStorage.setItem(VER+'_COLS', JSON.stringify(columns)); 
             localStorage.setItem(VER+'_W', JSON.stringify(widths)); 
         }
 
-        // --- 列管理核心逻辑 ---
-        function openColModal() { 
-            document.getElementById('colModal').style.display = 'flex'; 
-            renderColList(); 
-        }
+        function openColModal() { document.getElementById('colModal').style.display = 'flex'; renderColList(); }
+        function closeColModal() { document.getElementById('colModal').style.display = 'none'; render(); }
 
-        function closeColModal() { 
-            document.getElementById('colModal').style.display = 'none'; 
-        }
-
+        // --- 核心优化部分：完善列管理 ---
         function renderColList() {
             document.getElementById('colList').innerHTML = columns.map((c, i) => `
-                <div class="flex items-center justify-between bg-slate-50 p-4 rounded-xl border shadow-sm">
-                    <span class="font-bold text-lg text-slate-700">${c}</span>
-                    <div class="flex gap-2">
-                        <button onclick="moveCol(${i},-1)" class="p-3 bg-white border rounded active:bg-slate-200" ${i===0?'disabled style="opacity:0.3"':''}>⬆️</button>
-                        <button onclick="moveCol(${i}, 1)" class="p-3 bg-white border rounded active:bg-slate-200" ${i===columns.length-1?'disabled style="opacity:0.3"':''}>⬇️</button>
-                        <button onclick="deleteCol('${c}')" class="p-3 text-red-600 font-bold active:bg-red-100">删除</button>
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border-2 border-slate-200">
+                    <span class="font-bold text-slate-700 truncate mr-2 flex-1">${c}</span>
+                    <div class="flex gap-1 shrink-0">
+                        <button onclick="moveCol(${i},-1)" class="w-10 h-10 flex items-center justify-center bg-white border rounded shadow-sm active:bg-slate-100 ${i===0?'opacity-20 pointer-events-none':''}">⬆️</button>
+                        <button onclick="moveCol(${i},1)" class="w-10 h-10 flex items-center justify-center bg-white border rounded shadow-sm active:bg-slate-100 ${i===columns.length-1?'opacity-20 pointer-events-none':''}">⬇️</button>
+                        <button onclick="deleteCol('${c}')" class="w-10 h-10 flex items-center justify-center bg-red-50 text-red-600 rounded border border-red-100 active:bg-red-100">🗑️</button>
                     </div>
                 </div>`).join('');
         }
 
         function moveCol(i, d) { 
             let t = i + d; 
-            if (t>=0 && t<columns.length) { 
+            if (t >= 0 && t < columns.length) { 
                 [columns[i], columns[t]] = [columns[t], columns[i]]; 
-                push(); 
                 renderColList(); 
-                render(); 
+                push(); 
             } 
         }
 
@@ -248,26 +241,23 @@
             const n = input.value.trim();
             if (n && !columns.includes(n)) { 
                 columns.push(n); 
-                db.forEach(r => { if(!(n in r)) r[n] = ""; }); 
-                input.value = '';
-                push(); 
+                db.forEach(r => r[n] = ""); 
+                input.value = ""; 
                 renderColList(); 
-                render(); 
-            } else if(columns.includes(n)) {
-                alert("列名重复");
+                push(); 
+            } else if (columns.includes(n)) {
+                alert("列名已存在！");
             }
         }
 
         function deleteCol(n) { 
-            if(n === '实际数量') return alert("核心列不可删除");
-            if(confirm("确定删除该列及其所有数据？")) { 
+            if(confirm(`确定删除 [${n}] 吗？`)) { 
                 columns = columns.filter(c => c !== n); 
-                db.forEach(r => delete r[n]);
-                push(); 
                 renderColList(); 
-                render(); 
+                push(); 
             } 
         }
+        // --- 优化结束 ---
 
         function initResize(e, c) {
             const sX = e.touches[0].pageX; const sW = widths[c] || 130;
@@ -275,17 +265,13 @@
             document.addEventListener('touchmove', onM);
             document.addEventListener('touchend', () => { document.removeEventListener('touchmove', onM); push(); }, {once:true});
         }
-
         function exportExcel() {
             const ws = XLSX.utils.json_to_sheet(db, { header: columns });
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Inventory");
             XLSX.writeFile(wb, `Stock_V50_${new Date().toLocaleDateString()}.xlsx`);
         }
-
         function hardReset() { if(confirm("⚠️ 确定清空所有数据重新开始吗？")) { localStorage.clear(); location.reload(); } }
-        
         document.getElementById('manualInput').onkeydown = function(e) { if (e.key === 'Enter') handleBarcode(this.value); };
-        
         if (columns.length) render();
     </script>
 </body>
