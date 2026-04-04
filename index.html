@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <title>飞速盘点 S1.5 - 超速扫码版</title>
+    <title>飞速盘点 S1.7 - 智能音控版</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -28,7 +28,7 @@
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
-            height: 50vh; 
+            height: 45vh; 
             overflow: auto; 
             border-radius: 12px; 
             -webkit-overflow-scrolling: touch;
@@ -126,6 +126,16 @@
             justify-content:center;
             backdrop-filter: blur(8px);
         }
+        #volumeModal {
+            display:none;
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,0.9);
+            z-index:9999;
+            align-items:center;
+            justify-content:center;
+            backdrop-filter: blur(8px);
+        }
         .modal-content {
             background: white;
             border-radius: 24px;
@@ -146,7 +156,6 @@
             box-shadow: 0 0 0 2000px rgba(0,0,0,0.75); 
             z-index: 10; 
             pointer-events: none; 
-            background: rgba(0,0,0,0.1);
         }
         .scan-line { 
             position: absolute; 
@@ -154,7 +163,7 @@
             height: 4px; 
             background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
             top: 0; 
-            animation: scanLineMove 1.2s infinite ease-in-out; 
+            animation: scanLineMove 1s infinite ease-in-out; 
             box-shadow: 0 0 20px #3b82f6;
         }
         @keyframes scanLineMove { 
@@ -223,13 +232,29 @@
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
             border-bottom: 3px solid #3b82f6;
         }
-        /* 扫码成功动画 */
         .scan-success {
             animation: flash 0.2s ease;
         }
         @keyframes flash {
             0%, 100% { border-color: #3b82f6; }
             50% { border-color: #10b981; box-shadow: 0 0 0 2000px rgba(16,185,129,0.3); }
+        }
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #3b82f6;
+            outline: none;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #1e40af;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         @media (max-width: 480px) {
             .action-btn {
@@ -249,6 +274,28 @@
 <body>
     <div id="toast"></div>
 
+    <!-- 音量控制弹窗 -->
+    <div id="volumeModal">
+        <div class="modal-content p-6">
+            <h2 class="text-2xl font-bold mb-4 text-center">🔊 音量设置</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-gray-700 font-bold block mb-2">🔊 提示音量</label>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="70" class="volume-slider">
+                    <div class="flex justify-between mt-2">
+                        <span class="text-sm">🔇 静音</span>
+                        <span class="text-sm font-bold" id="volumeValue">70%</span>
+                        <span class="text-sm">🔊 最大</span>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="testSound()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold">🔊 测试声音</button>
+                    <button onclick="closeVolumeModal()" class="flex-1 bg-gray-600 text-white py-3 rounded-xl font-bold">完成</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="colModal">
         <div class="modal-content p-5">
             <h2 class="text-xl font-bold mb-3 text-center">📋 列管理</h2>
@@ -267,11 +314,11 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-2xl font-black tracking-tight">🚀 飞速盘点</h1>
-                    <div class="version-badge inline-block mt-0.5">S1.5</div>
+                    <div class="version-badge inline-block mt-0.5">S1.7</div>
                 </div>
-                <div class="text-right text-xs opacity-90">
-                    超速扫码
-                </div>
+                <button onclick="openVolumeModal()" class="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-sm font-bold active:scale-95 transition">
+                    🔊 音量
+                </button>
             </div>
         </div>
 
@@ -302,10 +349,12 @@
             </div>
 
             <div class="table-container" id="tableContainer">
-                <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom;">
-                    <thead id="tHead"></thead>
-                    <tbody id="tBody"></tbody>
-                </table>
+                <div style="touch-action: pan-x pan-y pinch-zoom; width: 100%; height: 100%; overflow: auto;">
+                    <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom; width: 100%;">
+                        <thead id="tHead"></thead>
+                        <tbody id="tBody"></tbody>
+                    </table>
+                </div>
             </div>
             
             <button onclick="exportExcel()" class="mt-3 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-base shadow-lg active:scale-95 transition">
@@ -316,9 +365,9 @@
 
     <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
         <div class="scan-header p-4 flex justify-between items-center">
-            <span class="font-bold text-blue-400 text-lg">🔍 超速扫描模式</span>
-            <button onclick="stopScanning()" class="close-scan-btn text-white font-bold">
-                ✕ 关闭
+            <span class="font-bold text-blue-400 text-lg">🔍 超灵敏扫描模式</span>
+            <button onclick="stopScanning(true)" class="close-scan-btn text-white font-bold">
+                ✕ 关闭扫描
             </button>
         </div>
         <div class="relative flex-1 bg-black">
@@ -328,14 +377,14 @@
             </div>
             <div class="absolute bottom-8 left-0 right-0 text-center">
                 <div class="bg-black/70 backdrop-blur text-white px-4 py-2 rounded-full inline-block text-sm font-bold border-2 border-blue-500">
-                    📷 倾斜、反光都能识别 | 自动连续扫描
+                    📷 倾斜/反光都能识别 | 自动对焦
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const VERSION = "S1.5";
+        const VERSION = "S1.7";
         const STORAGE_KEY = "FEISUPANDIAN_" + VERSION;
         
         let db = [];
@@ -345,7 +394,101 @@
         let reader = null;
         let lastCode = "";
         let lastTime = 0;
-        let jumpTimeout = null;
+        let currentFocusInterval = null;
+        let audioContext = null;
+        let currentVolume = 70; // 默认音量 70%
+
+        // 加载音量设置
+        function loadVolumeSetting() {
+            try {
+                const savedVolume = localStorage.getItem(STORAGE_KEY + "_VOLUME");
+                if (savedVolume !== null) {
+                    currentVolume = parseInt(savedVolume);
+                    const slider = document.getElementById('volumeSlider');
+                    const valueSpan = document.getElementById('volumeValue');
+                    if (slider) slider.value = currentVolume;
+                    if (valueSpan) valueSpan.textContent = currentVolume + "%";
+                }
+            } catch(e) {}
+        }
+
+        // 保存音量设置
+        function saveVolumeSetting() {
+            try {
+                localStorage.setItem(STORAGE_KEY + "_VOLUME", currentVolume);
+            } catch(e) {}
+        }
+
+        // 打开音量控制
+        function openVolumeModal() {
+            document.getElementById('volumeModal').style.display = 'flex';
+        }
+
+        function closeVolumeModal() {
+            document.getElementById('volumeModal').style.display = 'none';
+        }
+
+        // 音量滑块事件
+        document.getElementById('volumeSlider')?.addEventListener('input', (e) => {
+            currentVolume = parseInt(e.target.value);
+            document.getElementById('volumeValue').textContent = currentVolume + "%";
+            saveVolumeSetting();
+        });
+
+        // 测试声音
+        function testSound() {
+            playBeep(true, true); // 强制播放测试音
+        }
+
+        // 增强的播放声音（带音量控制）
+        function playBeep(success, forcePlay = false) {
+            if (currentVolume === 0 && !forcePlay) return;
+            
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // 成功: 1200Hz, 失败: 400Hz
+                oscillator.frequency.value = success ? 1200 : 400;
+                
+                // 音量控制 (0-100 转换为 0-0.5)
+                const volume = currentVolume / 100 * 0.5;
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.2);
+                oscillator.stop(audioContext.currentTime + 0.2);
+                
+            } catch(e) {
+                console.log('Audio error:', e);
+            }
+        }
+
+        // 震动反馈
+        function vibrate() {
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(30);
+            }
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.background = isError ? '#dc2626' : '#10b981';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
+        }
 
         // 加载数据
         function loadData() {
@@ -387,109 +530,79 @@
             }
         }
 
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.background = isError ? '#dc2626' : '#10b981';
-            toast.style.display = 'block';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 2000);
-        }
-
-        function playBeep(success) {
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.frequency.value = success ? 1200 : 400;
-                gainNode.gain.value = 0.15;
-                oscillator.start();
-                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
-                oscillator.stop(audioCtx.currentTime + 0.15);
-                audioCtx.resume();
-            } catch(e) {}
-        }
-
-        function vibrate() {
-            if (window.navigator && window.navigator.vibrate) {
-                window.navigator.vibrate(30);
+        // 强制关闭扫描并跳转
+        function stopScanningAndJump(foundIndex, productName) {
+            scanning = false;
+            
+            if (currentFocusInterval) {
+                clearInterval(currentFocusInterval);
+                currentFocusInterval = null;
             }
-        }
-
-        // 立即跳转到指定行并聚焦（无延迟）
-        function jumpToRowAndFocus(foundIndex) {
-            // 清除之前的跳转定时器
-            if (jumpTimeout) clearTimeout(jumpTimeout);
             
-            // 立即重新渲染（确保DOM最新）
-            render();
+            if (reader) {
+                try {
+                    reader.reset();
+                } catch(e) {}
+                reader = null;
+            }
             
-            // 使用 requestAnimationFrame 确保 DOM 更新完成
-            requestAnimationFrame(() => {
-                const rowEl = document.getElementById(`row-${foundIndex}`);
-                if (rowEl) {
-                    // 移除所有高亮
-                    document.querySelectorAll('#mainTable tbody tr').forEach(tr => {
-                        tr.classList.remove('row-focus');
-                    });
-                    
-                    // 添加高亮
-                    rowEl.classList.add('row-focus');
-                    
-                    // 立即滚动
-                    rowEl.scrollIntoView({ 
-                        behavior: 'auto',  // 使用 auto 而不是 smooth，更快
-                        block: 'center',
-                        inline: 'center'
-                    });
-                    
-                    // 立即聚焦数量输入框
-                    const qtyInput = document.getElementById(`qty-${foundIndex}`);
-                    if (qtyInput) {
-                        qtyInput.focus();
-                        qtyInput.select();
-                        // 添加视觉反馈
-                        qtyInput.style.transform = 'scale(1.02)';
-                        qtyInput.style.borderColor = '#10b981';
-                        setTimeout(() => {
-                            if (qtyInput) {
-                                qtyInput.style.transform = '';
-                                qtyInput.style.borderColor = '';
-                            }
-                        }, 200);
+            const videoEl = document.getElementById('video');
+            if (videoEl && videoEl.srcObject) {
+                const tracks = videoEl.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                videoEl.srcObject = null;
+            }
+            
+            const scanUI = document.getElementById('scanUI');
+            scanUI.style.display = 'none';
+            
+            setTimeout(() => {
+                render();
+                setTimeout(() => {
+                    const rowEl = document.getElementById(`row-${foundIndex}`);
+                    if (rowEl) {
+                        document.querySelectorAll('#mainTable tbody tr').forEach(tr => tr.classList.remove('row-focus'));
+                        rowEl.classList.add('row-focus');
+                        rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        const qtyInput = document.getElementById(`qty-${foundIndex}`);
+                        if (qtyInput) {
+                            setTimeout(() => {
+                                qtyInput.focus();
+                                qtyInput.select();
+                                qtyInput.style.transform = 'scale(1.02)';
+                                qtyInput.style.borderColor = '#10b981';
+                                setTimeout(() => {
+                                    if (qtyInput) {
+                                        qtyInput.style.transform = '';
+                                        qtyInput.style.borderColor = '';
+                                    }
+                                }, 300);
+                            }, 200);
+                        }
                     }
-                }
-            });
+                }, 100);
+            }, 50);
         }
 
-        // 超快速条码识别（优化匹配算法）
+        // 条码识别
         function handleBarcode(code, fromCamera = false) {
             if (!code) return false;
             
             const now = Date.now();
             const codeStr = String(code).trim();
             
-            // 更短的防重复时间（200ms）
-            if (codeStr === lastCode && (now - lastTime) < 200) {
+            if (codeStr === lastCode && (now - lastTime) < 100) {
                 return false;
             }
             lastCode = codeStr;
             lastTime = now;
             
-            // 显示识别到的内容
-            showToast(`识别: ${codeStr.substring(0, 25)}`, false);
-            
-            // 快速查找 - 优化算法
             let foundIndex = -1;
             const codeLower = codeStr.toLowerCase();
             
-            // 单次遍历，提前退出
             for (let i = 0; i < db.length; i++) {
                 const row = db[i];
-                // 检查所有字段
                 for (let key in row) {
                     const val = String(row[key] || '').trim();
                     if (val === codeStr) {
@@ -499,7 +612,6 @@
                 }
                 if (foundIndex !== -1) break;
                 
-                // 包含匹配（仅限文本字段）
                 for (let key in row) {
                     const val = String(row[key] || '').trim().toLowerCase();
                     if (val && val.includes(codeLower) && 
@@ -512,22 +624,38 @@
             }
             
             if (foundIndex !== -1) {
-                // 成功反馈
                 playBeep(true);
                 vibrate();
                 
                 const productName = db[foundIndex]['商品名称'] || db[foundIndex]['名称'] || codeStr;
                 showToast(`✅ ${productName}`, false);
                 
-                // 添加扫描框闪烁效果
                 const scanFrame = document.getElementById('scanFrame');
                 if (scanFrame) {
                     scanFrame.classList.add('scan-success');
                     setTimeout(() => scanFrame.classList.remove('scan-success'), 200);
                 }
                 
-                // 立即跳转（关键修复）
-                jumpToRowAndFocus(foundIndex);
+                if (fromCamera) {
+                    stopScanningAndJump(foundIndex, productName);
+                } else {
+                    render();
+                    setTimeout(() => {
+                        const rowEl = document.getElementById(`row-${foundIndex}`);
+                        if (rowEl) {
+                            document.querySelectorAll('#mainTable tbody tr').forEach(tr => tr.classList.remove('row-focus'));
+                            rowEl.classList.add('row-focus');
+                            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const qtyInput = document.getElementById(`qty-${foundIndex}`);
+                            if (qtyInput) {
+                                setTimeout(() => {
+                                    qtyInput.focus();
+                                    qtyInput.select();
+                                }, 200);
+                            }
+                        }
+                    }, 50);
+                }
                 
                 return true;
             } else {
@@ -537,7 +665,7 @@
             }
         }
 
-        // 启动超速扫描
+        // 启动扫描
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -556,7 +684,6 @@
             }
             
             try {
-                // 优化摄像头配置 - 提高识别率
                 const constraints = {
                     video: {
                         facingMode: { exact: "environment" },
@@ -566,9 +693,22 @@
                     }
                 };
                 
-                // 创建更强大的解码器
+                let finalConstraints = constraints;
+                try {
+                    await navigator.mediaDevices.getUserMedia(constraints);
+                } catch(e) {
+                    finalConstraints = {
+                        video: {
+                            facingMode: "environment",
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+                }
+                
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
                     ZXing.BarcodeFormat.QR_CODE,
                     ZXing.BarcodeFormat.EAN_13,
@@ -583,10 +723,9 @@
                 ]);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                // 极速解码 - 50ms 间隔
-                reader.timeBetweenDecodingAttempts = 50;
+                reader.timeBetweenDecodingAttempts = 30;
                 
-                await reader.decodeFromConstraints(constraints, 'video', (result, error) => {
+                await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
                     if (result && scanning) {
                         const code = result.getText();
                         if (code) {
@@ -595,9 +734,8 @@
                     }
                 });
                 
-                showToast("超速扫描已启动 | 支持倾斜/反光识别", false);
+                showToast("超灵敏扫描已启动 | 音量可调", false);
                 
-                // 增强对焦和曝光控制
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -608,37 +746,30 @@
                         const track = videoEl.srcObject.getVideoTracks()[0];
                         if (track && track.getCapabilities) {
                             const caps = track.getCapabilities();
-                            // 启用连续对焦
                             if (caps.focusMode && caps.focusMode.includes('continuous')) {
                                 track.applyConstraints({
                                     advanced: [{ focusMode: 'continuous' }]
                                 }).catch(() => {});
                             }
-                            // 启用曝光补偿（如果支持）
-                            if (caps.exposureCompensation) {
-                                track.applyConstraints({
-                                    advanced: [{ exposureCompensation: 0 }]
-                                }).catch(() => {});
-                            }
                         }
                     }
-                }, 1000);
+                }, 800);
                 
-                window.currentFocusInterval = focusInterval;
+                currentFocusInterval = focusInterval;
                 
             } catch(err) {
                 console.error("相机错误:", err);
                 showToast("无法启动摄像头，请检查权限", true);
-                stopScanning();
+                stopScanning(true);
             }
         }
 
-        function stopScanning() {
+        function stopScanning(manual = false) {
             scanning = false;
             
-            if (window.currentFocusInterval) {
-                clearInterval(window.currentFocusInterval);
-                window.currentFocusInterval = null;
+            if (currentFocusInterval) {
+                clearInterval(currentFocusInterval);
+                currentFocusInterval = null;
             }
             
             if (reader) {
@@ -693,7 +824,7 @@
                                     class="w-full p-2 text-xs outline-none bg-transparent"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
-                        </td>
+                         </td>
                     `).join('')}
                 </tr>
             `).join('');
@@ -753,53 +884,39 @@
                             <span class="font-bold text-sm">${idx + 1}. ${col}</span>
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="moveColumnUp(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">
-                                ⬆️
-                            </button>
-                            <button onclick="moveColumnDown(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">
-                                ⬇️
-                            </button>
-                            <button onclick="deleteColumn('${col}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs">
-                                删
-                            </button>
+                            <button onclick="moveColumnUp(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">⬆️</button>
+                            <button onclick="moveColumnDown(${idx})" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">⬇️</button>
+                            <button onclick="deleteColumn('${col}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs">删</button>
                         </div>
                     </div>
                 </div>
             `).join('');
-            
             setupDragAndDrop();
         }
         
         function setupDragAndDrop() {
             const items = document.querySelectorAll('.col-item');
             let draggedItem = null;
-            
             items.forEach(item => {
                 item.setAttribute('draggable', 'true');
-                
                 item.addEventListener('dragstart', (e) => {
                     draggedItem = item;
                     item.style.opacity = '0.5';
                     e.dataTransfer.effectAllowed = 'move';
                 });
-                
                 item.addEventListener('dragend', (e) => {
                     item.style.opacity = '';
                     draggedItem = null;
                 });
-                
                 item.addEventListener('dragover', (e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
                 });
-                
                 item.addEventListener('drop', (e) => {
                     e.preventDefault();
                     if (!draggedItem || draggedItem === item) return;
-                    
                     const fromIndex = parseInt(draggedItem.getAttribute('data-index'));
                     const toIndex = parseInt(item.getAttribute('data-index'));
-                    
                     if (!isNaN(fromIndex) && !isNaN(toIndex)) {
                         const temp = columns[fromIndex];
                         columns[fromIndex] = columns[toIndex];
@@ -851,129 +968,4 @@
             const newCol = document.getElementById('newColName').value.trim();
             if (newCol && !columns.includes(newCol)) {
                 columns.push(newCol);
-                db.forEach(row => row[newCol] = '');
-                renderColList();
-                render();
-                saveData();
-                showToast(`已添加列: ${newCol}`, false);
-                document.getElementById('newColName').value = '';
-            } else if (columns.includes(newCol)) {
-                showToast("列名已存在", true);
-            }
-        }
-        
-        function deleteColumn(colName) {
-            if (confirm(`确定删除列 "${colName}" 吗？数据将丢失！`)) {
-                const index = columns.indexOf(colName);
-                if (index !== -1) {
-                    columns.splice(index, 1);
-                    db.forEach(row => delete row[colName]);
-                    renderColList();
-                    render();
-                    saveData();
-                    showToast(`已删除列: ${colName}`, false);
-                }
-            }
-        }
-        
-        document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            showToast("正在导入...", false);
-            const fileReader = new FileReader();
-            fileReader.onload = (ev) => {
-                try {
-                    const data = new Uint8Array(ev.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-                    
-                    if (json.length > 0) {
-                        columns = Object.keys(json[0]);
-                        if (!columns.includes('实际数量')) {
-                            columns.unshift('实际数量');
-                        }
-                        db = json.map(row => {
-                            const newRow = { ...row };
-                            if (newRow['实际数量'] === undefined) newRow['实际数量'] = '';
-                            return newRow;
-                        });
-                        saveData();
-                        render();
-                        showToast(`✅ 导入成功！共 ${db.length} 条数据`, false);
-                    } else {
-                        showToast("文件无数据", true);
-                    }
-                } catch(err) {
-                    showToast("解析失败", true);
-                }
-            };
-            fileReader.readAsArrayBuffer(file);
-            e.target.value = '';
-        };
-        
-        function exportExcel() {
-            if (!db.length) {
-                showToast("暂无数据可导出", true);
-                return;
-            }
-            const ws = XLSX.utils.json_to_sheet(db, { header: columns });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "库存数据");
-            const fileName = `飞速盘点_${new Date().toLocaleDateString()}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            showToast("✅ 导出成功", false);
-        }
-        
-        function hardReset() {
-            if (confirm("⚠️ 确定清空所有数据吗？此操作不可恢复！")) {
-                localStorage.removeItem(STORAGE_KEY);
-                db = [];
-                columns = ['实际数量', '商品名称', '编码', '价格'];
-                widths = {};
-                saveData();
-                render();
-                showToast("已清空所有数据", false);
-            }
-        }
-        
-        window.addEventListener('beforeunload', () => {
-            if (scanning) {
-                stopScanning();
-            }
-        });
-        
-        loadData();
-        render();
-        
-        document.getElementById('confirmBtn').onclick = () => {
-            const input = document.getElementById('manualInput');
-            if (input.value.trim()) {
-                handleBarcode(input.value, false);
-                input.value = '';
-            }
-        };
-        
-        document.getElementById('manualInput').onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                const input = e.target;
-                if (input.value.trim()) {
-                    handleBarcode(input.value, false);
-                    input.value = '';
-                }
-            }
-        };
-        
-        document.getElementById('scanBtn').onclick = () => {
-            if (scanning) {
-                stopScanning();
-            } else {
-                startScanning();
-            }
-        };
-        
-        console.log(`🚀 飞速盘点 ${VERSION} 已启动 | 超速扫码引擎 | 支持倾斜/反光识别`);
-    </script>
-</body>
-</html>
+                db.forEach
