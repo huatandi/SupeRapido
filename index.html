@@ -4,84 +4,95 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>V50 PRO FINAL FIX</title>
+<title>V50 PRO UI FIX</title>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-body{background:#f1f5f9;font-family:sans-serif}
+body{background:#0f172a;color:#fff;font-family:sans-serif}
 
 .btn{
-padding:12px 18px;
-font-size:18px;
-border-radius:10px;
+padding:14px;
+font-size:20px;
+border-radius:12px;
 margin:5px;
+width:120px;
+}
+
+.big{
+width:160px;
+font-size:22px;
 }
 
 .table-container{
 background:#fff;
-border:2px solid #1e293b;
-height:60vh;
+color:#000;
+height:40vh;
 overflow:auto;
-border-radius:12px;
+border-radius:10px;
 }
 
-th{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px}
-td{border:1px solid #ddd}
+th{position:sticky;top:0;background:#111;color:#fff}
 
 .qty-input{
-width:100%;
-height:60px;
-font-size:22px;
+height:55px;
+font-size:20px;
 text-align:center;
-border:3px solid #2563eb
 }
 
-.row-focus{background:#fef08a}
+.row-focus{background:#fde047}
 
 #toast{
 position:fixed;
-top:10%;
+top:15%;
 left:50%;
 transform:translateX(-50%);
-color:#fff;
 padding:15px;
 border-radius:10px;
 display:none;
-z-index:9999
+z-index:9999;
 }
-
-.dragging{opacity:0.5;background:#ddd}
 </style>
 </head>
 
-<body class="p-2">
+<body>
 
 <div id="toast"></div>
 
-<h2 class="text-xl font-bold mb-2">扫码盘点（稳定修复版）</h2>
+<!-- 顶部操作 -->
+<div class="flex justify-center flex-wrap bg-black p-2">
 
-<!-- 顶部操作区 -->
-<div class="flex flex-wrap items-center">
+<button onclick="startScanning()" class="btn big bg-blue-600">扫码</button>
 
-<button onclick="startScanning()" class="btn bg-blue-600 text-white">📷 扫码</button>
+<input id="manualInput" placeholder="条码"
+class="text-black p-3 text-lg w-40 rounded">
 
-<input id="manualInput" placeholder="输入条码"
-class="border p-3 text-lg rounded w-48">
+<button onclick="manual()" class="btn bg-gray-600">确认</button>
 
-<button onclick="manual()" class="btn bg-gray-700 text-white">确认</button>
-
-<input type="file" id="fileInput" class="btn">
-
-<button onclick="exportExcel()" class="btn bg-green-600 text-white">导出</button>
-
-<button onclick="openColModal()" class="btn bg-black text-white">列管理</button>
+<input type="file" id="fileInput" class="btn bg-white text-black">
 
 </div>
 
-<div class="table-container mt-2">
+<!-- 扫码区域 -->
+<div id="scanUI" style="height:30vh;background:#000">
+<video id="video" style="width:100%;height:100%" autoplay playsinline></video>
+</div>
+
+<!-- 底部操作 -->
+<div class="flex justify-center flex-wrap bg-black p-2">
+
+<button onclick="exportExcel()" class="btn bg-green-600">导出</button>
+
+<button onclick="openColModal()" class="btn bg-purple-600">列管理</button>
+
+<button onclick="stopScanning()" class="btn bg-red-600">停止</button>
+
+</div>
+
+<!-- 表格 -->
+<div class="table-container">
 <table>
 <thead id="tHead"></thead>
 <tbody id="tBody"></tbody>
@@ -89,45 +100,33 @@ class="border p-3 text-lg rounded w-48">
 </div>
 
 <!-- 列管理 -->
-<div id="colModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8)">
-<div style="background:#fff;margin:10% auto;padding:20px;width:90%">
-<h3>拖拽排序</h3>
+<div id="colModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9)">
+<div style="background:#fff;color:#000;margin:10% auto;padding:20px;width:90%">
+<h3>列排序（上下按钮）</h3>
 <div id="colList"></div>
 <button onclick="closeColModal()">完成</button>
 </div>
 </div>
 
-<!-- 扫码 -->
-<div id="scanUI" style="display:none;position:fixed;inset:0;background:#000">
-<video id="video" style="width:100%;height:100%" autoplay playsinline></video>
-<button onclick="stopScanning()" style="position:absolute;top:20px;right:20px;background:red;color:#fff;padding:10px">退出</button>
-</div>
-
 <script>
 
 let db=[],columns=[];
-let dragIndex=null;
 
 /* ===== toast ===== */
-function showToast(msg,color="#ef4444"){
-let t=toast;
-t.innerText=msg;
-t.style.background=color;
-t.style.display="block";
-setTimeout(()=>t.style.display="none",1500);
+function showToast(msg,color="red"){
+toast.innerText=msg;
+toast.style.background=color;
+toast.style.display="block";
+setTimeout(()=>toast.style.display="none",1500);
 }
 
 /* ===== Excel ===== */
 fileInput.onchange=e=>{
 let f=e.target.files[0];
-if(!f)return;
-
 let r=new FileReader();
 
 r.onload=ev=>{
-try{
-let data=new Uint8Array(ev.target.result);
-let wb=XLSX.read(data,{type:'array'});
+let wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
 let json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
 
 columns=Object.keys(json[0]);
@@ -140,10 +139,6 @@ json.forEach(r=>r["实际数量"]="");
 db=json;
 save();
 render();
-
-}catch{
-showToast("文件错误");
-}
 };
 
 r.readAsArrayBuffer(f);
@@ -156,35 +151,27 @@ tHead.innerHTML="<tr>"+columns.map(c=>"<th>"+c+"</th>").join("")+"</tr>";
 tBody.innerHTML=db.map((r,i)=>`
 <tr id="r-${i}">
 ${columns.map(c=>`
-<td>
-<input value="${r[c]||""}"
+<td><input value="${r[c]||""}"
 class="${c=="实际数量"?"qty-input":""}"
-onchange="edit(${i},'${c}',this.value)">
-</td>`).join("")}
+onchange="edit(${i},'${c}',this.value)"></td>
+`).join("")}
 </tr>`).join("");
 }
 
 function edit(i,c,v){db[i][c]=v;save();}
 
-/* ===== 扫码（修复版） ===== */
-let codeReader=new ZXing.BrowserMultiFormatReader();
+/* ===== 扫码 ===== */
+let reader=new ZXing.BrowserMultiFormatReader();
 
 function startScanning(){
-scanUI.style.display="block";
-
-codeReader.decodeFromVideoDevice(null,"video",(result,err)=>{
-if(result){
-handle(result.getText());
-}
+reader.decodeFromVideoDevice(null,"video",(res)=>{
+if(res) handle(res.getText());
 });
 }
 
-function stopScanning(){
-codeReader.reset();
-scanUI.style.display="none";
-}
+function stopScanning(){reader.reset();}
 
-/* ===== 条码处理 ===== */
+/* ===== 条码 ===== */
 function normalize(v){return String(v).trim().toLowerCase();}
 
 function handle(code){
@@ -204,7 +191,6 @@ row.classList.add("row-focus");
 row.scrollIntoView({block:"center"});
 
 }else{
-navigator.vibrate&&navigator.vibrate(100);
 showToast("未找到:"+code);
 }
 }
@@ -234,43 +220,41 @@ columns=JSON.parse(localStorage.getItem("columns"))||[];
 
 if(columns.length)render();
 
-/* ===== 列拖拽（修复） ===== */
+/* ===== 列管理（上下按钮版） ===== */
 function openColModal(){
 colModal.style.display="block";
 renderColList();
 }
 
-function closeColModal(){
-colModal.style.display="none";
-}
+function closeColModal(){colModal.style.display="none";}
 
 function renderColList(){
 colList.innerHTML=columns.map((c,i)=>`
-<div draggable="true"
-ondragstart="dragStart(${i},this)"
-ondragover="event.preventDefault()"
-ondrop="dropCol(${i})"
-style="padding:10px;border:1px solid #ccc;margin:5px;background:#f9f9f9">
+<div style="padding:10px;border:1px solid #ccc;margin:5px">
 
-☰ ${c}
-<button onclick="deleteCol('${c}')" style="float:right;color:red">删除</button>
+${c}
+
+<button onclick="moveUp(${i})">⬆</button>
+<button onclick="moveDown(${i})">⬇</button>
+<button onclick="deleteCol('${c}')" style="color:red">删除</button>
+
 </div>
 `).join("");
 }
 
-function dragStart(i,el){
-dragIndex=i;
-el.classList.add("dragging");
+function moveUp(i){
+if(i===0)return;
+[columns[i],columns[i-1]]=[columns[i-1],columns[i]];
+updateCols();
 }
 
-function dropCol(i){
-if(dragIndex===null)return;
+function moveDown(i){
+if(i===columns.length-1)return;
+[columns[i],columns[i+1]]=[columns[i+1],columns[i]];
+updateCols();
+}
 
-let item=columns.splice(dragIndex,1)[0];
-columns.splice(i,0,item);
-
-dragIndex=null;
-
+function updateCols(){
 save();
 renderColList();
 render();
@@ -278,9 +262,7 @@ render();
 
 function deleteCol(c){
 columns=columns.filter(x=>x!=c);
-save();
-renderColList();
-render();
+updateCols();
 }
 
 </script>
