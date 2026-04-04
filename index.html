@@ -3,73 +3,99 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>V50 STABLE</title>
+<title>V50 PRO FINAL</title>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
+<script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-body{font-family:sans-serif;background:#f1f5f9;padding:10px}
-table{border-collapse:collapse;width:100%}
-th{background:#111;color:#fff;padding:8px}
-td{border:1px solid #ccc}
-input{width:100%;padding:6px;border:none}
-.qty{font-size:20px;text-align:center;border:2px solid #2563eb}
+body{background:#f1f5f9;font-family:sans-serif}
+.table-container{background:#fff;border:2px solid #1e293b;height:55vh;overflow:auto;border-radius:12px}
+th{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px}
+td{border:1px solid #ddd}
+.qty-input{width:100%;height:60px;font-size:22px;text-align:center;border:3px solid #2563eb}
 .row-focus{background:#fef08a}
-#video{width:100%;display:none}
+#toast{position:fixed;top:15%;left:50%;transform:translateX(-50%);color:#fff;padding:15px;border-radius:10px;display:none;z-index:9999}
 </style>
 </head>
 
-<body>
+<body class="p-2">
 
-<h2>扫码盘点（稳定版）</h2>
+<div id="toast"></div>
 
-<button onclick="startScan()">📷 扫码</button>
-<input id="manual" placeholder="手动输入条码">
+<h2 class="text-xl font-bold mb-2">扫码盘点（最终版）</h2>
+
+<button onclick="startScanning()" class="bg-blue-600 text-white px-4 py-2 rounded">📷 扫码</button>
+
+<input id="manualInput" placeholder="手动输入" class="border p-2 ml-2">
 <button onclick="manual()">确认</button>
 
 <br><br>
 
-<input type="file" id="file">
+<input type="file" id="fileInput">
 
+<br><br>
+
+<button onclick="openColModal()" class="bg-black text-white px-3 py-1">列管理</button>
+
+<div class="table-container mt-2">
 <table>
-<thead id="head"></thead>
-<tbody id="body"></tbody>
+<thead id="tHead"></thead>
+<tbody id="tBody"></tbody>
 </table>
+</div>
 
 <br>
-<button onclick="exportExcel()">导出Excel</button>
+<button onclick="exportExcel()" class="bg-green-600 text-white px-4 py-2">导出Excel</button>
 
-<video id="video" playsinline></video>
+<!-- 列管理 -->
+<div id="colModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);">
+<div style="background:#fff;margin:10% auto;padding:20px;width:90%">
+<h3>拖拽列排序</h3>
+<div id="colList"></div>
+<button onclick="closeColModal()">完成</button>
+</div>
+</div>
+
+<!-- 扫码 -->
+<div id="scanUI" style="display:none;position:fixed;inset:0;background:#000">
+<video id="video" style="width:100%;height:100%" autoplay muted playsinline></video>
+<button onclick="stopScanning()" style="position:absolute;top:20px;right:20px;background:red;color:#fff">退出</button>
+</div>
 
 <script>
 
-let db=[],cols=[];
+let db=[],columns=[],dragIndex=null;
 
-const normalize=v=>String(v).replace(/\s/g,'').toLowerCase();
+const normalize=v=>String(v).trim().toLowerCase();
 
-/* ===== Excel 导入（稳定版） ===== */
-document.getElementById("file").onchange=function(e){
-const file=e.target.files[0];
-if(!file)return;
+/* ===== Toast ===== */
+function showToast(msg,color="#ef4444"){
+let t=document.getElementById("toast");
+t.innerText=msg;
+t.style.background=color;
+t.style.display="block";
+setTimeout(()=>t.style.display="none",1500);
+}
 
-const reader=new FileReader();
+/* ===== Excel ===== */
+fileInput.onchange=e=>{
+const f=e.target.files[0];
+if(!f)return;
 
-reader.onload=function(ev){
+const r=new FileReader();
+r.onload=ev=>{
 try{
 const data=new Uint8Array(ev.target.result);
 const wb=XLSX.read(data,{type:'array'});
-const sheet=wb.Sheets[wb.SheetNames[0]];
-const json=XLSX.utils.sheet_to_json(sheet,{defval:""});
+const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
 
-if(!json.length){
-alert("空文件");return;
-}
+if(!json.length){showToast("空文件");return;}
 
-cols=Object.keys(json[0]);
-
-if(!cols.includes("实际数量")){
-cols.unshift("实际数量");
+columns=Object.keys(json[0]);
+if(!columns.includes("实际数量")){
+columns.unshift("实际数量");
 json.forEach(r=>r["实际数量"]="");
 }
 
@@ -77,60 +103,59 @@ db=json;
 save();
 render();
 
-}catch(e){
-alert("文件错误");
-}
+}catch(e){showToast("文件错误");}
 };
-
-reader.readAsArrayBuffer(file);
+r.readAsArrayBuffer(f);
 };
 
 /* ===== 渲染 ===== */
 function render(){
-head.innerHTML="<tr>"+cols.map(c=>"<th>"+c+"</th>").join("")+"</tr>";
+tHead.innerHTML="<tr>"+columns.map(c=>"<th>"+c+"</th>").join("")+"</tr>";
 
-body.innerHTML=db.map((r,i)=>`
-<tr id="r${i}">
-${cols.map(c=>`
+tBody.innerHTML=db.map((r,i)=>`
+<tr id="r-${i}">
+${columns.map(c=>`
 <td>
 <input value="${r[c]||""}"
-class="${c=="实际数量"?"qty":""}"
+class="${c=="实际数量"?"qty-input":""}"
 onchange="edit(${i},'${c}',this.value)">
 </td>`).join("")}
-</tr>
-`).join("");
+</tr>`).join("");
 }
 
-/* ===== 修改 ===== */
-function edit(i,c,v){
-db[i][c]=v;
-save();
-}
+/* ===== 编辑 ===== */
+function edit(i,c,v){db[i][c]=v;save();}
 
 /* ===== 扫码 ===== */
 const hints=new Map();
 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
 ZXing.BarcodeFormat.CODE_128,
 ZXing.BarcodeFormat.EAN_13,
+ZXing.BarcodeFormat.EAN_8,
 ZXing.BarcodeFormat.UPC_A
 ]);
 
-const readerZX=new ZXing.BrowserMultiFormatReader(hints);
-readerZX.timeBetweenDecodingAttempts=0;
+const reader=new ZXing.BrowserMultiFormatReader(hints);
+reader.timeBetweenDecodingAttempts=0;
+reader.delayBetweenScanAttempts=0;
 
 let last="",time=0;
 
-function startScan(){
-video.style.display="block";
+function startScanning(){
+scanUI.style.display="block";
 
-readerZX.decodeFromConstraints({
-video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}}
+reader.decodeFromConstraints({
+video:{
+facingMode:"environment",
+width:{ideal:1280},
+height:{ideal:720}
+}
 },"video",(res)=>{
 if(res){
 let code=res.getText();
 let now=Date.now();
 
-if(code===last && now-time<800)return;
+if(code===last && now-time<500)return;
 last=code;time=now;
 
 handle(code);
@@ -138,9 +163,11 @@ handle(code);
 });
 }
 
-/* ===== 处理条码 ===== */
+function stopScanning(){reader.reset();scanUI.style.display="none";}
+
+/* ===== 条码处理 ===== */
 function handle(code){
-const t=normalize(code);
+let t=normalize(code);
 
 let idx=db.findIndex(r=>
 Object.values(r).some(v=>normalize(v)==t)
@@ -148,9 +175,11 @@ Object.values(r).some(v=>normalize(v)==t)
 
 if(idx!=-1){
 
+render();
+
 document.querySelectorAll("tr").forEach(tr=>tr.classList.remove("row-focus"));
 
-let row=document.getElementById("r"+idx);
+let row=document.getElementById("r-"+idx);
 if(row){
 row.classList.add("row-focus");
 row.scrollIntoView({block:"center"});
@@ -158,35 +187,79 @@ row.scrollIntoView({block:"center"});
 
 }else{
 navigator.vibrate&&navigator.vibrate(100);
+showToast("未找到:"+code);
 }
 }
 
 /* ===== 手动 ===== */
 function manual(){
-handle(document.getElementById("manual").value);
-document.getElementById("manual").value="";
+handle(manualInput.value);
+manualInput.value="";
 }
 
 /* ===== 导出 ===== */
 function exportExcel(){
-let ws=XLSX.utils.json_to_sheet(db,{header:cols});
+let ws=XLSX.utils.json_to_sheet(db,{header:columns});
 let wb=XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb,ws,"data");
 XLSX.writeFile(wb,"库存.xlsx");
 }
 
-/* ===== 存储 ===== */
+/* ===== 本地存储 ===== */
 function save(){
 localStorage.setItem("db",JSON.stringify(db));
-localStorage.setItem("cols",JSON.stringify(cols));
+localStorage.setItem("columns",JSON.stringify(columns));
 }
 
 try{
 db=JSON.parse(localStorage.getItem("db"))||[];
-cols=JSON.parse(localStorage.getItem("cols"))||[];
+columns=JSON.parse(localStorage.getItem("columns"))||[];
 }catch(e){}
 
-if(cols.length)render();
+if(columns.length)render();
+
+/* ===== 列管理 ===== */
+function openColModal(){
+colModal.style.display="block";
+renderColList();
+}
+function closeColModal(){colModal.style.display="none";}
+
+function renderColList(){
+colList.innerHTML=columns.map((c,i)=>`
+<div draggable="true"
+ondragstart="dragStart(event,${i})"
+ondragover="dragOver(event)"
+ondrop="dropCol(event,${i})"
+style="padding:10px;border:1px solid #ccc;margin:5px;background:#f9f9f9">
+
+☰ ${c}
+<button onclick="deleteCol('${c}')" style="float:right;color:red">删除</button>
+</div>
+`).join("");
+}
+
+function dragStart(e,i){dragIndex=i;}
+function dragOver(e){e.preventDefault();}
+
+function dropCol(e,i){
+if(dragIndex===null)return;
+
+let item=columns.splice(dragIndex,1)[0];
+columns.splice(i,0,item);
+
+dragIndex=null;
+save();
+renderColList();
+render();
+}
+
+function deleteCol(c){
+columns=columns.filter(x=>x!=c);
+save();
+renderColList();
+render();
+}
 
 </script>
 
