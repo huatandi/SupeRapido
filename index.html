@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SuperRapido V50 Pro - 极速扫码版</title>
+    <title>SuperRapido V50 Pro - 稳定扫码版</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
+            user-select: none;
         }
         body { 
             background-color: #f1f5f9; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overscroll-behavior: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
         .table-container { 
             background: white; 
@@ -24,14 +23,12 @@
             overflow: auto; 
             border-radius: 12px; 
             -webkit-overflow-scrolling: touch;
-            position: relative;
         }
         table { 
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed; 
             width: max-content;
-            min-width: 100%;
         }
         th { 
             position: sticky; 
@@ -44,7 +41,6 @@
             padding: 12px; 
             font-size: 13px; 
             text-align: left;
-            user-select: none;
         }
         .resizer { 
             position: absolute; 
@@ -54,8 +50,7 @@
             width: 20px; 
             cursor: col-resize; 
             z-index: 60;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2));
-            touch-action: none;
+            background: rgba(255,255,255,0.1);
         }
         td { 
             border-right: 1px solid #e2e8f0; 
@@ -72,22 +67,11 @@
             color: #1e40af; 
             border-radius: 8px; 
             background: #fff; 
-            -webkit-appearance: none;
-            transition: all 0.1s ease;
-        }
-        .qty-input:focus {
-            transform: scale(1.02);
-            background: #fef9c3;
         }
         .row-focus { 
             background-color: #fef08a !important; 
-            outline: 6px solid #ef4444; 
-            outline-offset: -6px;
-            animation: pulse 0.3s ease;
-        }
-        @keyframes pulse {
-            0%, 100% { outline-width: 6px; }
-            50% { outline-width: 12px; }
+            outline: 4px solid #ef4444; 
+            outline-offset: -4px;
         }
         #toast { 
             position: fixed; 
@@ -96,50 +80,46 @@
             transform: translateX(-50%); 
             background: #1f2937;
             color: white; 
-            padding: 16px 24px; 
-            border-radius: 60px; 
+            padding: 12px 20px; 
+            border-radius: 40px; 
             z-index: 10000; 
             display: none; 
-            font-weight: 900; 
+            font-weight: bold; 
             text-align: center; 
             white-space: nowrap;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: none;
-            font-size: 18px;
-            backdrop-filter: blur(10px);
+            font-size: 14px;
         }
         #colModal { 
             display:none; 
             position:fixed; 
             inset:0; 
-            background:rgba(0,0,0,0.9); 
+            background:rgba(0,0,0,0.85); 
             z-index:9999; 
             align-items:center; 
             justify-content:center;
-            backdrop-filter: blur(8px);
         }
         .scan-frame { 
             position: absolute; 
             top: 50%; 
             left: 50%; 
             transform: translate(-50%, -50%); 
-            width: 85%; 
-            height: 280px; 
-            border: 3px solid #3b82f6; 
-            border-radius: 24px; 
-            box-shadow: 0 0 0 2000px rgba(0,0,0,0.7), 0 0 0 3px rgba(59,130,246,0.5); 
+            width: 80%; 
+            height: 200px; 
+            border: 2px solid #3b82f6; 
+            border-radius: 12px; 
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.6); 
             z-index: 10; 
             pointer-events: none; 
         }
         .scan-line { 
             position: absolute; 
             width: 100%; 
-            height: 4px; 
-            background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+            height: 2px; 
+            background: #3b82f6; 
             top: 0; 
-            animation: scanLineMove 1.2s infinite cubic-bezier(0.4, 0, 0.2, 1); 
-            box-shadow: 0 0 20px #3b82f6;
-            will-change: top;
+            animation: scanLineMove 2s infinite ease; 
         }
         @keyframes scanLineMove { 
             0% { top: 5%; }
@@ -147,38 +127,23 @@
             100% { top: 5%; }
         }
         .giant-cam-btn { 
-            width: 90px !important; 
-            height: 90px !important; 
-            font-size: 48px !important; 
+            width: 80px !important; 
+            height: 80px !important; 
+            font-size: 40px !important; 
             flex-shrink: 0; 
-            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4); 
-            border: 4px solid white;
-            transition: transform 0.1s ease;
-        }
-        .giant-cam-btn:active {
-            transform: scale(0.95);
         }
         .col-item {
-            transition: transform 0.2s ease, background 0.2s ease;
-            touch-action: none;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
         }
-        .col-item.dragging {
-            opacity: 0.5;
-            transform: scale(0.98);
+        .col-item:active {
             background: #dbeafe;
         }
-        .vibration-feedback {
-            animation: vibrate 0.05s linear 3;
-        }
-        @keyframes vibrate {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(2px); }
-        }
-        /* 移动端优化 */
         @media (max-width: 640px) {
-            .qty-input { height: 55px; font-size: 1.8rem; }
-            th { padding: 8px; font-size: 11px; }
-            .giant-cam-btn { width: 75px !important; height: 75px !important; font-size: 40px !important; }
+            .qty-input { height: 50px; font-size: 1.5rem; }
+            .giant-cam-btn { width: 70px !important; height: 70px !important; font-size: 35px !important; }
         }
     </style>
 </head>
@@ -186,36 +151,34 @@
     <div id="toast"></div>
 
     <div id="colModal">
-        <div class="bg-white w-11/12 max-h-[85vh] rounded-3xl p-6 overflow-auto border-4 border-slate-900 shadow-2xl">
-            <h2 class="text-2xl font-black mb-4 border-b-2 pb-2 text-center text-slate-800">📋 列管理</h2>
+        <div class="bg-white w-11/12 max-h-[85vh] rounded-3xl p-6 overflow-auto border-4 border-slate-900">
+            <h2 class="text-2xl font-bold mb-4 border-b-2 pb-2 text-center">📋 列管理</h2>
             <div id="colList" class="space-y-2 mb-6"></div>
-            <div class="flex gap-2 p-3 bg-slate-100 rounded-2xl border-2">
+            <div class="flex gap-2 p-3 bg-slate-100 rounded-xl">
                 <input type="text" id="newColName" placeholder="新列名..." class="flex-1 bg-transparent font-bold outline-none text-lg" />
-                <button onclick="addColumn()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold active:scale-95 transition">➕ 添加</button>
+                <button onclick="addColumn()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">➕ 添加</button>
             </div>
-            <button onclick="closeColModal()" class="w-full mt-6 bg-slate-900 text-white py-5 rounded-2xl font-black text-xl active:scale-95 transition">完成返回</button>
+            <button onclick="closeColModal()" class="w-full mt-6 bg-slate-900 text-white py-4 rounded-xl font-bold text-lg">完成</button>
         </div>
     </div>
 
     <div class="flex flex-col h-screen">
         <div class="flex items-center justify-between mb-3 px-1">
-            <h1 class="text-3xl font-black text-slate-900 tracking-tighter italic">V50 Pro</h1>
-            <div class="flex flex-1 justify-end gap-3 ml-4">
-                <button onclick="openColModal()" class="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black text-sm shadow-md active:scale-95 transition">📊 列管理</button>
-                <button onclick="hardReset()" class="flex-1 bg-red-600 text-white py-3 rounded-xl font-black text-sm shadow-md active:scale-95 transition">🗑️ 清空重置</button>
+            <h1 class="text-2xl font-bold text-slate-900">V50 Pro</h1>
+            <div class="flex gap-2">
+                <button onclick="openColModal()" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold">📊 列管理</button>
+                <button onclick="hardReset()" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold">🗑️ 重置</button>
             </div>
         </div>
 
-        <div class="flex gap-3 mb-4 bg-white p-3 rounded-3xl shadow-xl border-2 border-slate-100 items-center">
-            <button id="scanBtn" class="bg-blue-600 text-white rounded-3xl active:scale-95 giant-cam-btn transition">📷</button>
-            <div class="flex-1 flex flex-col gap-2">
-                <div class="flex flex-col gap-1">
-                    <input type="text" id="manualInput" placeholder="📱 点击手动输入或扫码..." 
-                        class="w-full border-4 border-blue-50 border-b-blue-200 rounded-xl px-4 h-12 font-bold outline-none focus:border-blue-600 text-lg" />
-                    <button id="confirmBtn" class="w-full bg-blue-700 text-white py-3 rounded-xl font-black text-lg shadow-lg active:scale-95 transition">✅ 确 认</button>
-                </div>
-                <label class="bg-slate-50 text-slate-400 h-10 flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-[10px] font-black uppercase active:scale-95 transition cursor-pointer">
-                    📂 导入 EXCEL <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
+        <div class="flex gap-3 mb-4 bg-white p-3 rounded-2xl shadow-lg items-center">
+            <button id="scanBtn" class="bg-blue-600 text-white rounded-2xl active:scale-95 giant-cam-btn">📷</button>
+            <div class="flex-1">
+                <input type="text" id="manualInput" placeholder="手动输入条码..." 
+                    class="w-full border-2 border-gray-300 rounded-xl px-3 py-2 font-bold text-lg mb-2" />
+                <button id="confirmBtn" class="w-full bg-blue-600 text-white py-2 rounded-xl font-bold">确认</button>
+                <label class="block text-center mt-2 bg-gray-100 py-2 rounded-lg text-xs font-bold">
+                    📂 导入Excel <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
                 </label>
             </div>
         </div>
@@ -224,418 +187,329 @@
             <table id="mainTable"><thead id="tHead"></thead><tbody id="tBody"></tbody></table>
         </div>
         
-        <button onclick="exportExcel()" class="mt-4 bg-emerald-700 text-white py-5 rounded-2xl font-black text-2xl shadow-xl active:scale-95 transition border-b-8 border-emerald-900">💾 导出保存 Excel</button>
+        <button onclick="exportExcel()" class="mt-4 bg-emerald-700 text-white py-4 rounded-xl font-bold text-xl shadow-lg">💾 导出 Excel</button>
     </div>
 
     <div id="scanUI" class="fixed inset-0 bg-black z-[999] hidden flex-col">
-        <div class="p-4 flex justify-between items-center bg-slate-900 text-white border-b-2 border-blue-500">
-            <span class="font-bold text-blue-400">🔍 极速扫描模式 (对准条码自动识别)</span>
-            <button onclick="stopScanning()" class="bg-red-600 px-8 py-3 rounded-full font-black active:scale-95 transition">✕ 退出</button>
+        <div class="p-3 flex justify-between items-center bg-slate-900 text-white">
+            <span class="font-bold text-sm">📷 扫描条码</span>
+            <button onclick="stopScanning()" class="bg-red-600 px-6 py-2 rounded-full font-bold text-sm">关闭</button>
         </div>
-        <div class="relative flex-1 overflow-hidden bg-black">
-            <video id="v" class="w-full h-full object-cover" playsinline muted autoplay></video>
+        <div class="relative flex-1 bg-black">
+            <video id="video" class="w-full h-full object-cover" playsinline muted autoplay></video>
             <div class="scan-frame">
                 <div class="scan-line"></div>
             </div>
-            <div class="absolute bottom-8 left-0 right-0 text-center text-white bg-black/50 py-2 text-sm font-bold">
-                将条码对准扫描框中心
+            <div class="absolute bottom-5 left-0 right-0 text-center text-white bg-black/50 py-2 text-xs">
+                将条码对准框内
             </div>
         </div>
     </div>
 
     <script>
-        const VER = "SR_V50_PRO_V2";
-        let db = []; let columns = []; let widths = {};
-        let lastScannedCode = ""; let lastScannedTime = 0;
+        const STORAGE_KEY = "V50_INVENTORY";
+        let db = [];
+        let columns = [];
+        let widths = {};
+        let scanning = false;
+        let reader = null;
         let scanTimeout = null;
-        let currentReader = null;
-        let focusInterval = null;
-        let scanDebounceTimer = null;
-        let dragState = { active: false, startY: 0, startIndex: -1, currentIndex: -1 };
+        let lastCode = "";
+        let lastTime = 0;
 
         // 加载数据
-        try {
-            const savedData = localStorage.getItem(VER+'_DATA');
-            const savedCols = localStorage.getItem(VER+'_COLS');
-            const savedWidths = localStorage.getItem(VER+'_W');
-            
-            if (savedData) db = JSON.parse(savedData);
-            if (savedCols) columns = JSON.parse(savedCols);
-            if (savedWidths) widths = JSON.parse(savedWidths);
-            
-            // 确保有实际数量列
-            if (columns.length > 0 && !columns.includes('实际数量')) {
-                columns.unshift('实际数量');
-                db.forEach(row => { if (row['实际数量'] === undefined) row['实际数量'] = ''; });
+        function loadData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    db = data.db || [];
+                    columns = data.columns || [];
+                    widths = data.widths || {};
+                }
+                if (!columns.length) {
+                    columns = ['实际数量', '商品名称', '条码', '价格'];
+                    db = [];
+                }
+                if (!db.length) {
+                    db = [];
+                }
+                // 确保每行都有实际数量字段
+                db.forEach(row => {
+                    if (row['实际数量'] === undefined) row['实际数量'] = '';
+                });
+            } catch(e) {
+                console.error(e);
+                columns = ['实际数量', '商品名称', '条码', '价格'];
+                db = [];
             }
-        } catch(e) { console.error(e); }
+        }
 
-        // Toast通知函数
+        // 保存数据
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    db: db,
+                    columns: columns,
+                    widths: widths
+                }));
+            } catch(e) {
+                showToast("存储失败", true);
+            }
+        }
+
+        // 显示提示
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
             toast.style.background = isError ? '#dc2626' : '#10b981';
             toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
         }
 
-        // 震动反馈（移动端）
-        function vibrate(pattern = 50) {
-            if (window.navigator && window.navigator.vibrate) {
-                window.navigator.vibrate(pattern);
-            }
-        }
-
-        // 播放声音
-        let audioCtx = null;
-        function playSound(isSuccess) {
+        // 播放提示音
+        function beep(success) {
             try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.frequency.setValueAtTime(isSuccess ? 1200 : 400, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.2);
-            } catch(e) { console.log('Audio error:', e); }
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = success ? 880 : 440;
+                gainNode.gain.value = 0.1;
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.2);
+                oscillator.stop(audioContext.currentTime + 0.2);
+                audioContext.resume();
+            } catch(e) {}
         }
 
-        // 处理条码（核心优化）
-        function handleBarcode(code, fromCam = false) {
+        // 处理条码
+        function handleBarcode(code, fromCamera = false) {
             if (!code) return false;
             
-            // 防抖处理
-            if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
-            
-            const target = String(code).trim();
-            if (target === '') return false;
-            
-            // 重复扫码过滤（300ms内相同条码不重复处理）
             const now = Date.now();
-            if (target === lastScannedCode && (now - lastScannedTime) < 300) {
+            const codeStr = String(code).trim();
+            
+            // 防重复
+            if (codeStr === lastCode && (now - lastTime) < 500) {
                 return false;
             }
-            lastScannedCode = target;
-            lastScannedTime = now;
+            lastCode = codeStr;
+            lastTime = now;
             
-            document.getElementById('manualInput').value = target;
+            showToast(`识别到: ${codeStr.substring(0, 20)}`, false);
             
-            // 搜索商品（支持模糊匹配和精确匹配）
-            let idx = db.findIndex(row => 
-                Object.values(row).some(v => 
-                    v !== null && String(v).trim().toLowerCase() === target.toLowerCase()
-                )
-            );
-            
-            // 如果精确匹配不到，尝试包含匹配
-            if (idx === -1) {
-                idx = db.findIndex(row => 
-                    Object.values(row).some(v => 
-                        v !== null && String(v).toLowerCase().includes(target.toLowerCase())
-                    )
-                );
+            // 查找商品（支持条码列或任何列匹配）
+            let foundIndex = -1;
+            for (let i = 0; i < db.length; i++) {
+                const row = db[i];
+                for (let key in row) {
+                    const val = String(row[key] || '').trim();
+                    if (val === codeStr || val.includes(codeStr)) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+                if (foundIndex !== -1) break;
             }
             
-            if (idx !== -1) {
-                // 找到商品
-                vibrate(30);
-                playSound(true);
-                showToast(`✅ 找到: ${target}`, false);
+            if (foundIndex !== -1) {
+                beep(true);
+                showToast(`✅ 找到商品: ${db[foundIndex]['商品名称'] || codeStr}`, false);
+                
+                // 高亮行
                 render();
-                
-                const rowEl = document.getElementById(`r-${idx}`);
-                const inputEl = document.getElementById(`in-${idx}-实际数量`);
-                
-                document.querySelectorAll('tr').forEach(tr => tr.classList.remove('row-focus'));
-                if (rowEl) {
-                    rowEl.classList.add('row-focus');
-                    rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    scanDebounceTimer = setTimeout(() => {
-                        if(inputEl) {
-                            inputEl.focus();
-                            inputEl.select();
-                            // 自动弹出数字键盘
-                            if (inputEl.type === 'number') {
-                                inputEl.click();
-                            }
+                setTimeout(() => {
+                    const rowEl = document.getElementById(`row-${foundIndex}`);
+                    if (rowEl) {
+                        document.querySelectorAll('tr').forEach(tr => tr.classList.remove('row-focus'));
+                        rowEl.classList.add('row-focus');
+                        rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // 聚焦到数量输入框
+                        const qtyInput = document.getElementById(`qty-${foundIndex}`);
+                        if (qtyInput) {
+                            setTimeout(() => {
+                                qtyInput.focus();
+                                qtyInput.select();
+                            }, 300);
                         }
-                    }, 300);
-                }
+                    }
+                }, 50);
                 
-                if (fromCam) {
-                    // 扫码成功后自动继续扫描（不关闭相机）
-                    // 重置扫描状态
-                    setTimeout(() => {
-                        if (currentReader && document.getElementById('scanUI').style.display === 'flex') {
-                            // 继续监听
-                        }
-                    }, 100);
+                if (fromCamera) {
+                    // 扫码成功后不关闭相机，继续扫描
+                    return true;
                 } else {
                     stopScanning();
                 }
                 return true;
             } else {
-                // 未找到商品
-                vibrate([50, 100, 50]);
-                playSound(false);
-                showToast(`❌ 未找到: ${target.substring(0, 30)}`, true);
-                if (fromCam) {
-                    // 扫码失败不退出，继续扫描
+                beep(false);
+                showToast(`❌ 未找到条码: ${codeStr}`, true);
+                if (fromCamera) {
+                    // 继续扫描
                     return false;
                 }
                 return false;
             }
         }
 
-        // 优化后的扫码启动（极速响应）
+        // 启动扫描（优化版）
         async function startScanning() {
+            if (scanning) {
+                showToast("扫描器已在运行", false);
+                return;
+            }
+            
             const scanUI = document.getElementById('scanUI');
             scanUI.style.display = 'flex';
+            scanning = true;
             
-            // 停止之前的扫描
-            if (currentReader) {
+            // 重置状态
+            if (reader) {
                 try {
-                    await currentReader.reset();
+                    await reader.reset();
                 } catch(e) {}
+                reader = null;
             }
             
             try {
-                // 获取可用摄像头
+                // 获取后置摄像头
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                const backCamera = videoDevices.find(device => 
+                let backCamera = videoDevices.find(device => 
                     device.label.toLowerCase().includes('back') || 
                     device.label.toLowerCase().includes('rear') ||
                     device.label.toLowerCase().includes('环境')
-                ) || videoDevices[0];
+                );
+                
+                if (!backCamera && videoDevices.length > 0) {
+                    backCamera = videoDevices[0];
+                }
                 
                 const constraints = {
-                    video: {
-                        deviceId: backCamera ? { exact: backCamera.deviceId } : undefined,
+                    video: backCamera ? {
+                        deviceId: { exact: backCamera.deviceId },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } : {
                         facingMode: { exact: "environment" },
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        frameRate: { ideal: 60 }
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     }
                 };
                 
-                currentReader = new ZXing.BrowserMultiFormatReader();
-                currentReader.timeBetweenDecodingAttempts = 100; // 极速解码
+                reader = new ZXing.BrowserMultiFormatReader();
+                reader.timeBetweenDecodingAttempts = 200;
                 
-                // 解码回调（优化性能）
-                await currentReader.decodeFromConstraints(constraints, 'v', (result, error) => {
-                    if (result) {
+                // 开始解码
+                await reader.decodeFromConstraints(constraints, 'video', (result, error) => {
+                    if (result && scanning) {
                         const code = result.getText();
                         if (code) {
                             handleBarcode(code, true);
                         }
                     }
-                    // 错误时不处理，避免卡死
                 });
                 
-                // 自动对焦优化（移动端）
-                const videoEl = document.getElementById('v');
-                const setupAutoFocus = () => {
+                showToast("相机已启动，对准条码即可识别", false);
+                
+                // 定期对焦优化（安卓）
+                const videoEl = document.getElementById('video');
+                const focusInterval = setInterval(() => {
+                    if (!scanning) {
+                        clearInterval(focusInterval);
+                        return;
+                    }
                     if (videoEl && videoEl.srcObject) {
                         const track = videoEl.srcObject.getVideoTracks()[0];
                         if (track && track.getCapabilities) {
-                            const capabilities = track.getCapabilities();
-                            
-                            // 持续对焦优化
-                            if (focusInterval) clearInterval(focusInterval);
-                            focusInterval = setInterval(async () => {
-                                try {
-                                    if (track.readyState === 'live') {
-                                        await track.applyConstraints({
-                                            advanced: [{ focusMode: 'continuous' }]
-                                        });
-                                    }
-                                } catch(e) { /* 静默失败 */ }
-                            }, 1500);
-                            
-                            // 初始对焦
                             track.applyConstraints({
                                 advanced: [{ focusMode: 'continuous' }]
                             }).catch(() => {});
                         }
                     }
-                };
+                }, 2000);
                 
-                videoEl.addEventListener('loadedmetadata', setupAutoFocus);
+                // 存储interval以便清理
+                window.currentFocusInterval = focusInterval;
                 
-                showToast('📷 相机已启动，对准条码即可识别', false);
-                
-            } catch (err) {
-                console.error('Camera error:', err);
-                showToast('❌ 相机启动失败，请检查权限', true);
+            } catch(err) {
+                console.error("相机错误:", err);
+                showToast("无法启动相机，请检查权限", true);
                 stopScanning();
             }
         }
 
+        // 停止扫描
         function stopScanning() {
-            if (currentReader) {
+            scanning = false;
+            
+            if (window.currentFocusInterval) {
+                clearInterval(window.currentFocusInterval);
+                window.currentFocusInterval = null;
+            }
+            
+            if (reader) {
                 try {
-                    currentReader.reset();
-                    currentReader = null;
+                    reader.reset();
                 } catch(e) {}
+                reader = null;
             }
-            if (focusInterval) {
-                clearInterval(focusInterval);
-                focusInterval = null;
-            }
-            const videoEl = document.getElementById('v');
+            
+            const videoEl = document.getElementById('video');
             if (videoEl && videoEl.srcObject) {
                 const tracks = videoEl.srcObject.getTracks();
                 tracks.forEach(track => track.stop());
                 videoEl.srcObject = null;
             }
+            
             document.getElementById('scanUI').style.display = 'none';
         }
 
-        // 列管理拖动排序（支持iOS/安卓）
-        function initDragAndDrop() {
-            const colList = document.getElementById('colList');
-            let draggedItem = null;
-            
-            colList.addEventListener('touchstart', (e) => {
-                const item = e.target.closest('.col-item');
-                if (!item) return;
-                draggedItem = item;
-                draggedItem.classList.add('dragging');
-                draggedItem.style.opacity = '0.5';
-            });
-            
-            colList.addEventListener('touchmove', (e) => {
-                if (!draggedItem) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
-                const targetItem = elements.find(el => el.classList && el.classList.contains('col-item'));
-                
-                if (targetItem && targetItem !== draggedItem) {
-                    const parent = colList;
-                    const children = Array.from(parent.children);
-                    const draggedIndex = children.indexOf(draggedItem);
-                    const targetIndex = children.indexOf(targetItem);
-                    
-                    if (draggedIndex < targetIndex) {
-                        targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
-                    } else {
-                        targetItem.parentNode.insertBefore(draggedItem, targetItem);
-                    }
-                    
-                    // 更新列顺序
-                    const newColumns = Array.from(parent.children).map(child => 
-                        child.getAttribute('data-colname')
-                    );
-                    columns = newColumns;
-                    push();
-                    render();
-                }
-            });
-            
-            colList.addEventListener('touchend', () => {
-                if (draggedItem) {
-                    draggedItem.classList.remove('dragging');
-                    draggedItem.style.opacity = '';
-                    draggedItem = null;
-                }
-            });
-        }
-
-        // 渲染列管理列表（支持拖动）
-        function renderColList() {
-            const container = document.getElementById('colList');
-            container.innerHTML = columns.map((c, i) => `
-                <div class="col-item flex items-center justify-between bg-slate-50 p-4 rounded-xl border-2 border-slate-200" 
-                     draggable="true" data-colname="${c}">
-                    <span class="font-bold text-lg text-slate-700 flex-1">☰ ${c}</span>
-                    <div class="flex gap-2">
-                        <button onclick="moveCol(${i},-1)" class="p-3 bg-blue-100 rounded-xl font-bold active:scale-95 transition">⬆️</button>
-                        <button onclick="moveCol(${i},1)" class="p-3 bg-blue-100 rounded-xl font-bold active:scale-95 transition">⬇️</button>
-                        <button onclick="deleteCol('${c}')" class="p-3 bg-red-100 text-red-600 rounded-xl font-bold active:scale-95 transition">🗑️</button>
-                    </div>
-                </div>
-            `).join('');
-            
-            // 重新绑定拖动事件
-            setTimeout(() => initDragAndDrop(), 100);
-        }
-        
-        function moveCol(i, d) {
-            let t = i + d;
-            if (t >= 0 && t < columns.length) {
-                [columns[i], columns[t]] = [columns[t], columns[i]];
-                renderColList();
-                push();
-                render();
-                showToast('列顺序已更新', false);
-            }
-        }
-        
-        function addColumn() {
-            const n = document.getElementById('newColName').value.trim();
-            if (n && !columns.includes(n)) {
-                columns.push(n);
-                db.forEach(r => r[n] = "");
-                push();
-                renderColList();
-                render();
-                showToast(`✅ 已添加列: ${n}`, false);
-                document.getElementById('newColName').value = '';
-            } else if (columns.includes(n)) {
-                showToast('❌ 列名已存在', true);
-            }
-        }
-        
-        function deleteCol(n) {
-            if(confirm(`确定删除列 "${n}" 吗？数据将丢失！`)) {
-                columns = columns.filter(c => c !== n);
-                push();
-                renderColList();
-                render();
-                showToast(`已删除列: ${n}`, false);
-            }
-        }
-        
-        function saveVal(r, c, v) {
-            db[r][c] = v;
-            push();
-        }
-        
-        function push() { 
-            try {
-                localStorage.setItem(VER+'_DATA', JSON.stringify(db)); 
-                localStorage.setItem(VER+'_COLS', JSON.stringify(columns)); 
-                localStorage.setItem(VER+'_W', JSON.stringify(widths)); 
-            } catch(e) {
-                showToast('存储失败，空间不足', true);
-            }
-        }
-        
+        // 渲染表格
         function render() {
-            const h = document.getElementById('tHead');
-            const b = document.getElementById('tBody');
-            if (!columns || !columns.length) {
-                b.innerHTML = '<tr><td colspan="10" class="text-center p-8">请先导入Excel或添加列表</td></tr>';
+            const thead = document.getElementById('tHead');
+            const tbody = document.getElementById('tBody');
+            
+            if (!columns.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-4">暂无数据，请导入Excel</td></tr>';
                 return;
             }
-            h.innerHTML = `<tr>${columns.map(c => `<th id="th-${c}" style="width: ${widths[c] || 140}px; position: relative;">${c}<div class="resizer" ontouchstart="initResize(event, '${c}')" ontouchmove="onResize(event, '${c}')" ontouchend="endResize(event, '${c}')"></div></th>`).join('')}</tr>`;
-            b.innerHTML = db.map((row, rIdx) => {
-                const cells = columns.map(c => {
-                    const isQty = (c === '实际数量');
-                    return `<td><input id="in-${rIdx}-${c}" type="${isQty?'number':'text'}" value="${escapeHtml(String(row[c]||''))}" class="${isQty?'qty-input':'p-2 w-full text-[13px] outline-none bg-transparent'}" onchange="saveVal(${rIdx},'${c}',this.value)" ${isQty ? 'inputmode="numeric" pattern="[0-9]*"' : ''} /></td>`;
-                }).join('');
-                return `<tr id="r-${rIdx}">${cells}</tr>`;
-            }).join('');
+            
+            // 渲染表头
+            thead.innerHTML = `<tr>${columns.map(col => `
+                <th style="width: ${widths[col] || 140}px; position: relative;">
+                    ${col}
+                    <div class="resizer" 
+                         ontouchstart="startResize(event, '${col}')"
+                         ontouchmove="onResize(event, '${col}')"
+                         ontouchend="endResize(event, '${col}')"></div>
+                </th>
+            `).join('')}</tr>`;
+            
+            // 渲染数据
+            tbody.innerHTML = db.map((row, idx) => `
+                <tr id="row-${idx}">
+                    ${columns.map(col => `
+                        <td>
+                            ${col === '实际数量' ? 
+                                `<input id="qty-${idx}" type="number" value="${row[col] || ''}" 
+                                    class="qty-input" 
+                                    onchange="updateQty(${idx}, this.value)"
+                                    onfocus="this.select()" />` :
+                                `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
+                                    class="w-full p-2 text-sm outline-none bg-transparent"
+                                    onchange="updateCell(${idx}, '${col}', this.value)" />`
+                            }
+                        </td>
+                    `).join('')}
+                </tr>
+            `).join('');
         }
         
         function escapeHtml(str) {
@@ -647,34 +521,45 @@
             });
         }
         
-        let resizeState = null;
-        function initResize(e, c) {
+        function updateQty(rowIndex, value) {
+            db[rowIndex]['实际数量'] = value;
+            saveData();
+            showToast("已保存", false);
+        }
+        
+        function updateCell(rowIndex, col, value) {
+            db[rowIndex][col] = value;
+            saveData();
+        }
+        
+        // 列调整大小
+        let resizeInfo = null;
+        function startResize(e, col) {
             e.preventDefault();
             const startX = e.touches[0].pageX;
-            const startWidth = widths[c] || 140;
-            resizeState = { c, startX, startWidth };
+            resizeInfo = { col, startX, startWidth: widths[col] || 140 };
         }
         
-        function onResize(e, c) {
-            if (!resizeState || resizeState.c !== c) return;
+        function onResize(e, col) {
+            if (!resizeInfo || resizeInfo.col !== col) return;
             e.preventDefault();
-            const deltaX = e.touches[0].pageX - resizeState.startX;
-            const newWidth = Math.max(60, resizeState.startWidth + deltaX);
-            widths[c] = newWidth;
-            const th = document.getElementById(`th-${c}`);
-            if (th) th.style.width = newWidth + 'px';
+            const delta = e.touches[0].pageX - resizeInfo.startX;
+            const newWidth = Math.max(60, resizeInfo.startWidth + delta);
+            widths[col] = newWidth;
+            render();
         }
         
-        function endResize(e, c) {
-            if (resizeState) {
-                push();
-                resizeState = null;
+        function endResize(e, col) {
+            if (resizeInfo) {
+                saveData();
+                resizeInfo = null;
             }
         }
         
+        // 列管理
         function openColModal() {
-            document.getElementById('colModal').style.display = 'flex';
             renderColList();
+            document.getElementById('colModal').style.display = 'flex';
         }
         
         function closeColModal() {
@@ -682,79 +567,157 @@
             render();
         }
         
+        function renderColList() {
+            const container = document.getElementById('colList');
+            container.innerHTML = columns.map((col, idx) => `
+                <div class="col-item p-3 flex items-center justify-between">
+                    <span class="font-bold">${idx + 1}. ${col}</span>
+                    <div class="flex gap-2">
+                        ${idx > 0 ? `<button onclick="moveColumn(${idx}, ${idx-1})" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">⬆️</button>` : ''}
+                        ${idx < columns.length - 1 ? `<button onclick="moveColumn(${idx}, ${idx+1})" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">⬇️</button>` : ''}
+                        <button onclick="deleteColumn('${col}')" class="bg-red-500 text-white px-3 py-1 rounded text-sm">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function moveColumn(from, to) {
+            const temp = columns[from];
+            columns[from] = columns[to];
+            columns[to] = temp;
+            renderColList();
+            render();
+            saveData();
+            showToast("列顺序已更新", false);
+        }
+        
+        function addColumn() {
+            const newCol = document.getElementById('newColName').value.trim();
+            if (newCol && !columns.includes(newCol)) {
+                columns.push(newCol);
+                db.forEach(row => row[newCol] = '');
+                renderColList();
+                render();
+                saveData();
+                showToast(`已添加列: ${newCol}`, false);
+                document.getElementById('newColName').value = '';
+            } else if (columns.includes(newCol)) {
+                showToast("列名已存在", true);
+            }
+        }
+        
+        function deleteColumn(colName) {
+            if (confirm(`确定删除列 "${colName}" 吗？`)) {
+                const index = columns.indexOf(colName);
+                if (index !== -1) {
+                    columns.splice(index, 1);
+                    db.forEach(row => delete row[colName]);
+                    renderColList();
+                    render();
+                    saveData();
+                    showToast(`已删除列: ${colName}`, false);
+                }
+            }
+        }
+        
+        // 导入Excel
+        document.getElementById('fileInput').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            showToast("正在导入...", false);
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const data = new Uint8Array(ev.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    
+                    if (json.length > 0) {
+                        columns = Object.keys(json[0]);
+                        if (!columns.includes('实际数量')) {
+                            columns.unshift('实际数量');
+                        }
+                        db = json.map(row => {
+                            const newRow = { ...row };
+                            if (newRow['实际数量'] === undefined) newRow['实际数量'] = '';
+                            return newRow;
+                        });
+                        saveData();
+                        render();
+                        showToast(`导入成功！共 ${db.length} 条数据`, false);
+                    } else {
+                        showToast("文件无数据", true);
+                    }
+                } catch(err) {
+                    showToast("解析失败", true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            e.target.value = '';
+        };
+        
+        // 导出Excel
         function exportExcel() {
             if (!db.length) {
-                showToast('暂无数据可导出', true);
+                showToast("暂无数据可导出", true);
                 return;
             }
             const ws = XLSX.utils.json_to_sheet(db, { header: columns });
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-            XLSX.writeFile(wb, `Stock_V50_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
-            showToast('✅ 导出成功', false);
+            XLSX.utils.book_append_sheet(wb, ws, "库存");
+            const fileName = `库存_${new Date().toLocaleDateString()}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast("导出成功", false);
         }
         
+        // 重置数据
         function hardReset() {
-            if(confirm("⚠️ 确定清空所有数据重新开始吗？此操作不可恢复！")) {
-                localStorage.clear();
-                showToast('已清空所有数据，页面将刷新', false);
-                setTimeout(() => location.reload(), 500);
+            if (confirm("⚠️ 确定清空所有数据吗？此操作不可恢复！")) {
+                localStorage.removeItem(STORAGE_KEY);
+                db = [];
+                columns = ['实际数量', '商品名称', '条码', '价格'];
+                widths = {};
+                saveData();
+                render();
+                showToast("已清空所有数据", false);
             }
         }
-        
-        // 文件导入
-        document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            showToast('📂 正在导入...', false);
-            const r = new FileReader();
-            r.onload = (ev) => {
-                try {
-                    const data = new Uint8Array(ev.target.result);
-                    const wb = XLSX.read(data, { type: 'array' });
-                    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-                    if (json.length) {
-                        columns = Object.keys(json[0]);
-                        if (!columns.includes('实际数量')) columns.unshift('实际数量');
-                        db = json.map(row => ({ '实际数量': '', ...row }));
-                        push();
-                        render();
-                        showToast(`✅ 导入成功，共 ${db.length} 条数据`, false);
-                    } else {
-                        showToast('❌ 文件无数据', true);
-                    }
-                } catch(err) {
-                    showToast('❌ 解析失败', true);
-                }
-            };
-            r.onerror = () => showToast('❌ 读取失败', true);
-            r.readAsArrayBuffer(file);
-            e.target.value = '';
-        };
-        
-        // 事件绑定
-        document.getElementById('confirmBtn').onclick = () => handleBarcode(document.getElementById('manualInput').value, false);
-        document.getElementById('scanBtn').onclick = () => startScanning();
-        document.getElementById('manualInput').onkeydown = (e) => { if (e.key === 'Enter') handleBarcode(e.target.value, false); };
         
         // 页面卸载时清理
         window.addEventListener('beforeunload', () => {
-            if (currentReader) {
-                try { currentReader.reset(); } catch(e) {}
+            if (scanning) {
+                stopScanning();
             }
-            if (focusInterval) clearInterval(focusInterval);
         });
         
-        // 初始化渲染
-        if (columns.length) render();
-        else renderColList();
+        // 初始化
+        loadData();
+        render();
         
-        // 激活音频上下文（用户交互后）
-        document.body.addEventListener('touchstart', () => {
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
+        // 绑定事件
+        document.getElementById('confirmBtn').onclick = () => {
+            const input = document.getElementById('manualInput');
+            handleBarcode(input.value, false);
+            input.value = '';
+        };
+        
+        document.getElementById('manualInput').onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const input = e.target;
+                handleBarcode(input.value, false);
+                input.value = '';
             }
-        }, { once: true });
+        };
+        
+        document.getElementById('scanBtn').onclick = () => {
+            if (scanning) {
+                stopScanning();
+            } else {
+                startScanning();
+            }
+        };
     </script>
 </body>
 </html>
