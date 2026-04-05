@@ -37,16 +37,6 @@
             .main-card { max-width: 1100px; }
             .table-container { height: 60vh; }
         }
-        /* iPad Pro 专用优化 */
-        @media (min-width: 1024px) and (min-height: 1366px) {
-            .scan-frame { 
-                top: 35% !important;
-                width: 70% !important;
-                height: 200px !important;
-            }
-            .scan-header { padding: 20px !important; }
-            .close-scan-btn { font-size: 20px !important; padding: 14px 28px !important; }
-        }
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
@@ -159,11 +149,11 @@
         }
         .scan-frame { 
             position: absolute; 
-            top: 40%; 
+            top: 50%; 
             left: 50%; 
             transform: translate(-50%, -50%); 
-            width: 80%; 
-            height: 220px; 
+            width: 85%; 
+            height: 250px; 
             border: 3px solid #3b82f6; 
             border-radius: 20px; 
             box-shadow: 0 0 0 2000px rgba(0,0,0,0.75); 
@@ -205,6 +195,7 @@
             font-size: 10px;
             font-weight: bold;
         }
+        /* 新布局样式 */
         .btn-group-4 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -306,11 +297,13 @@
         </div>
 
         <div class="p-3">
+            <!-- 输入框区域 -->
             <div class="mb-3">
                 <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." 
                     class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold text-base focus:border-blue-500 outline-none" />
             </div>
             
+            <!-- 四个按钮：列管理、导入、导出、确认 -->
             <div class="btn-group-4">
                 <button onclick="openColModal()" class="action-btn bg-gray-700 text-white shadow-md">
                     📊 列管理
@@ -326,6 +319,7 @@
                 </button>
             </div>
 
+            <!-- 表格容器 - 支持双指缩放 -->
             <div class="table-container" id="tableContainer">
                 <div style="touch-action: pan-x pan-y pinch-zoom; width: 100%; height: 100%; overflow: auto;">
                     <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom; width: 100%;">
@@ -335,6 +329,7 @@
                 </div>
             </div>
             
+            <!-- 底部三个按钮：摄像头、重置、导出Excel（原导出已移到上面，这里改成其他功能） -->
             <div class="bottom-btns">
                 <button id="scanBtn" class="bottom-btn bg-blue-600 text-white shadow-lg cam-btn-large">
                     📷 扫码
@@ -363,7 +358,7 @@
             </div>
             <div class="absolute bottom-8 left-0 right-0 text-center">
                 <div class="bg-black/70 backdrop-blur text-white px-4 py-2 rounded-full inline-block text-sm font-bold border-2 border-blue-500">
-                    📷 将条码对准扫描框 (距离20-30cm最佳)
+                    📷 将条码对准扫描框
                 </div>
             </div>
         </div>
@@ -383,10 +378,7 @@
         let currentFocusInterval = null;
         let pendingJump = null;
 
-        // 检测是否为 iPad
-        const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
-        const isIPadPro = isIPad && (screen.width >= 1024 || screen.height >= 1366);
-
+        // 加载数据
         function loadData() {
             try {
                 const saved = localStorage.getItem(STORAGE_KEY);
@@ -596,7 +588,7 @@
             }
         }
 
-        // iPad Pro M4 优化版扫码
+        // S1.8 增强版扫码配置 - SupeRapido
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -615,31 +607,19 @@
             }
             
             try {
-                // iPad Pro M4 专用优化配置
-                let constraints;
+                // 检测设备性能，动态调整配置（确保流畅运行）
+                const deviceMemory = navigator.deviceMemory || 4;
+                const isHighEnd = deviceMemory >= 6;
                 
-                if (isIPadPro) {
-                    // iPad Pro 优化：降低分辨率提高速度，增加帧率
-                    constraints = {
-                        video: {
-                            facingMode: { exact: "environment" },
-                            width: { ideal: 1280, min: 960 },
-                            height: { ideal: 720, min: 540 },
-                            frameRate: { ideal: 60, min: 30 }
-                        }
-                    };
-                    console.log("iPad Pro M4 优化模式已启用");
-                } else {
-                    // 默认配置
-                    constraints = {
-                        video: {
-                            facingMode: { exact: "environment" },
-                            width: { ideal: 1920, min: 1280 },
-                            height: { ideal: 1080, min: 720 },
-                            frameRate: { ideal: 30, min: 15 }
-                        }
-                    };
-                }
+                // 摄像头配置（优化曝光和对焦，提高识别率）
+                const constraints = {
+                    video: {
+                        facingMode: { exact: "environment" },
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 },
+                        frameRate: { ideal: 30, min: 15 }
+                    }
+                };
                 
                 let finalConstraints = constraints;
                 try {
@@ -654,7 +634,7 @@
                     };
                 }
                 
-                // 增强解码配置
+                // S1.8 增强解码配置（不增加性能负担）
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -676,14 +656,7 @@
                 hints.set(ZXing.DecodeHintType.RETURN_CODABAR_START_END, true);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                
-                // iPad Pro 优化：更快的解码间隔
-                if (isIPadPro) {
-                    reader.timeBetweenDecodingAttempts = 40;
-                } else {
-                    const deviceMemory = navigator.deviceMemory || 4;
-                    reader.timeBetweenDecodingAttempts = deviceMemory >= 6 ? 30 : 50;
-                }
+                reader.timeBetweenDecodingAttempts = isHighEnd ? 30 : 50;
                 
                 await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
                     if (result && scanning) {
@@ -694,9 +667,8 @@
                     }
                 });
                 
-                showToast(isIPadPro ? "iPad Pro 优化模式已启动 | 距离20-30cm最佳" : "SupeRapido 智能识别已启动", false);
+                showToast("SupeRapido 智能识别已启动", false);
                 
-                // 增强对焦控制
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -724,7 +696,7 @@
                             }
                         }
                     }
-                }, isIPadPro ? 800 : 1000);
+                }, 1000);
                 
                 currentFocusInterval = focusInterval;
                 
@@ -766,7 +738,7 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表<tr></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</table></tr>';
                 return;
             }
             
@@ -795,7 +767,7 @@
                                     class="w-full p-2 text-xs outline-none bg-transparent"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
-                        </tr>
+                        </td>
                     `).join('')}
                 </tr>
             `).join('');
@@ -991,84 +963,4 @@
                         }
                         db = json.map(row => {
                             const newRow = { ...row };
-                            if (newRow['实际数量'] === undefined) newRow['实际数量'] = '';
-                            return newRow;
-                        });
-                        saveData();
-                        render();
-                        showToast(`✅ 导入成功！共 ${db.length} 条数据`, false);
-                    } else {
-                        showToast("文件无数据", true);
-                    }
-                } catch(err) {
-                    showToast("解析失败", true);
-                }
-            };
-            fileReader.readAsArrayBuffer(file);
-            e.target.value = '';
-        };
-        
-        function exportExcel() {
-            if (!db.length) {
-                showToast("暂无数据可导出", true);
-                return;
-            }
-            const ws = XLSX.utils.json_to_sheet(db, { header: columns });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "库存数据");
-            const fileName = `飞速盘点_${new Date().toLocaleDateString()}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            showToast("✅ 导出成功", false);
-        }
-        
-        function hardReset() {
-            if (confirm("⚠️ 确定清空所有数据吗？此操作不可恢复！")) {
-                localStorage.removeItem(STORAGE_KEY);
-                db = [];
-                columns = ['实际数量', '商品名称', '编码', '价格'];
-                widths = {};
-                saveData();
-                render();
-                showToast("已清空所有数据", false);
-            }
-        }
-        
-        window.addEventListener('beforeunload', () => {
-            if (scanning) {
-                stopScanning(true);
-            }
-        });
-        
-        loadData();
-        render();
-        
-        document.getElementById('confirmBtn').onclick = () => {
-            const input = document.getElementById('manualInput');
-            if (input.value.trim()) {
-                handleBarcode(input.value, false);
-                input.value = '';
-            }
-        };
-        
-        document.getElementById('manualInput').onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                const input = e.target;
-                if (input.value.trim()) {
-                    handleBarcode(input.value, false);
-                    input.value = '';
-                }
-            }
-        };
-        
-        document.getElementById('scanBtn').onclick = () => {
-            if (scanning) {
-                stopScanning(true);
-            } else {
-                startScanning();
-            }
-        };
-        
-        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | iPad Pro 优化模式: ${isIPadPro ? '已启用' : '未启用'}`);
-    </script>
-</body>
-</html>
+                            if (newRow['实际数量'] === undefined) newRow['实际
