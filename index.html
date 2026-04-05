@@ -15,50 +15,53 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             min-height: 100vh;
-            padding: 0;
-            margin: 0;
+            padding: 12px;
         }
-        /* 主容器铺满全屏 */
         .main-card {
             background: white;
-            border-radius: 0;
-            box-shadow: none;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            max-width: 1200px;
+            margin: 0 auto;
             width: 100%;
-            min-height: 100vh;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
         }
-        /* 平板和PC自适应铺满 */
+        /* 平板和PC自适应 */
         @media (min-width: 768px) {
-            .main-card { border-radius: 0; }
-            .table-container { flex: 1; min-height: 60vh; }
+            body { padding: 20px; }
+            .main-card { max-width: 900px; }
+            .table-container { height: 55vh; }
+            .qty-input { height: 65px; font-size: 1.8rem; }
         }
         @media (min-width: 1024px) {
-            .table-container { flex: 1; min-height: 65vh; }
+            .main-card { max-width: 1100px; }
+            .table-container { height: 60vh; }
         }
-        /* iPad Pro 12.9寸 专用铺满优化 */
+        /* iPad Pro 专用优化 */
         @media (min-width: 1024px) and (min-height: 1366px) {
-            .main-card { min-height: 100vh; }
-            .table-container { flex: 1; min-height: 70vh; }
-            .p-3 { padding: 20px; }
+            .scan-frame { 
+                top: 35% !important;
+                width: 70% !important;
+                height: 200px !important;
+            }
+            .scan-header { padding: 20px !important; }
+            .close-scan-btn { font-size: 20px !important; padding: 14px 28px !important; }
         }
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
-            border-radius: 12px; 
+            height: 45vh; 
             overflow: auto; 
+            border-radius: 12px; 
             -webkit-overflow-scrolling: touch;
             touch-action: pan-x pan-y pinch-zoom;
             position: relative;
-            width: 100%;
         }
-        /* 表格平铺铺满 */
         table { 
             border-collapse: separate; 
             border-spacing: 0; 
             table-layout: fixed; 
-            width: 100%;
+            width: max-content;
             min-width: 100%;
         }
         th { 
@@ -69,8 +72,8 @@
             color: white; 
             border-right: 1px solid #334155; 
             border-bottom: 2px solid #3b82f6; 
-            padding: 12px; 
-            font-size: 13px; 
+            padding: 10px; 
+            font-size: 12px; 
             text-align: left;
             font-weight: 600;
         }
@@ -88,7 +91,7 @@
         td { 
             border-right: 1px solid #e2e8f0; 
             border-bottom: 1px solid #e2e8f0; 
-            padding: 4px;
+            padding: 2px;
         }
         .qty-input { 
             width: 100%; 
@@ -221,10 +224,9 @@
         }
         .bottom-btns {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-top: 12px;
-            margin-bottom: 12px;
         }
         .bottom-btn {
             padding: 14px 4px;
@@ -269,12 +271,12 @@
             .qty-input { height: 48px; font-size: 1.2rem; }
             .cam-btn-large { font-size: 24px; }
         }
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .action-btn { font-size: 14px; }
+            .bottom-btn { font-size: 18px; }
+        }
         .action-btn:active, .bottom-btn:active {
             transform: scale(0.97);
-        }
-        /* 内容区域自动填充 */
-        .flex-grow {
-            flex: 1;
         }
     </style>
 </head>
@@ -303,7 +305,7 @@
             </div>
         </div>
 
-        <div class="p-3 flex-grow" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="p-3">
             <div class="mb-3">
                 <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." 
                     class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold text-base focus:border-blue-500 outline-none" />
@@ -324,23 +326,24 @@
                 </button>
             </div>
 
-            <!-- 表格容器 - 平铺铺满 -->
-            <div class="table-container" style="flex: 1; min-height: 300px;">
-                <div style="width: 100%; height: 100%; overflow: auto; touch-action: pan-x pan-y pinch-zoom;">
-                    <table id="mainTable" style="width: 100%; table-layout: fixed;">
+            <div class="table-container" id="tableContainer">
+                <div style="touch-action: pan-x pan-y pinch-zoom; width: 100%; height: 100%; overflow: auto;">
+                    <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom; width: 100%;">
                         <thead id="tHead"></thead>
                         <tbody id="tBody"></tbody>
                     </table>
                 </div>
             </div>
             
-            <!-- 底部两个按钮：扫码、重置（移除导出Excel按钮） -->
             <div class="bottom-btns">
                 <button id="scanBtn" class="bottom-btn bg-blue-600 text-white shadow-lg cam-btn-large">
                     📷 扫码
                 </button>
                 <button onclick="hardReset()" class="bottom-btn bg-red-600 text-white shadow-lg">
                     🗑️ 重置
+                </button>
+                <button onclick="exportExcel()" class="bottom-btn bg-emerald-600 text-white shadow-lg">
+                    💾 导出Excel
                 </button>
             </div>
         </div>
@@ -455,50 +458,40 @@
             }
         }
 
-        // 立即跳转到指定行 - 修复跳转功能
         function fastJumpToRow(foundIndex) {
-            console.log("跳转到行:", foundIndex);
             const rowEl = document.getElementById(`row-${foundIndex}`);
             if (rowEl) {
-                // 移除所有高亮
                 document.querySelectorAll('#mainTable tbody tr').forEach(tr => {
                     tr.classList.remove('row-focus');
                 });
                 
-                // 添加高亮
                 rowEl.classList.add('row-focus');
                 
-                // 滚动到可视区域
                 rowEl.scrollIntoView({ 
-                    behavior: 'smooth', 
+                    behavior: 'auto', 
                     block: 'center',
                     inline: 'center'
                 });
                 
-                // 聚焦数量输入框
                 const qtyInput = document.getElementById(`qty-${foundIndex}`);
                 if (qtyInput) {
+                    qtyInput.focus();
+                    qtyInput.select();
+                    qtyInput.style.transform = 'scale(1.02)';
+                    qtyInput.style.borderColor = '#10b981';
                     setTimeout(() => {
-                        qtyInput.focus();
-                        qtyInput.select();
-                        qtyInput.style.transform = 'scale(1.02)';
-                        qtyInput.style.borderColor = '#10b981';
-                        setTimeout(() => {
-                            if (qtyInput) {
-                                qtyInput.style.transform = '';
-                                qtyInput.style.borderColor = '';
-                            }
-                        }, 300);
-                    }, 300);
+                        if (qtyInput) {
+                            qtyInput.style.transform = '';
+                            qtyInput.style.borderColor = '';
+                        }
+                    }, 200);
                 }
                 return true;
             }
             return false;
         }
 
-        // 强制关闭扫描并跳转
         function stopScanningAndJump(foundIndex, productName) {
-            console.log("关闭扫描并跳转到:", foundIndex, productName);
             pendingJump = foundIndex;
             
             scanning = false;
@@ -525,15 +518,15 @@
             const scanUI = document.getElementById('scanUI');
             scanUI.style.display = 'none';
             
-            // 延迟确保扫描界面关闭后再跳转
-            setTimeout(() => {
-                // 重新渲染确保DOM最新
-                render();
-                setTimeout(() => {
-                    fastJumpToRow(foundIndex);
-                    pendingJump = null;
-                }, 100);
-            }, 100);
+            requestAnimationFrame(() => {
+                if (!fastJumpToRow(foundIndex)) {
+                    render();
+                    requestAnimationFrame(() => {
+                        fastJumpToRow(foundIndex);
+                    });
+                }
+                pendingJump = null;
+            });
         }
 
         function handleBarcode(code, fromCamera = false) {
@@ -587,11 +580,12 @@
                 }
                 
                 if (fromCamera) {
-                    // 从相机扫码：关闭扫描并跳转
                     stopScanningAndJump(foundIndex, productName);
                 } else {
-                    // 手动输入：直接跳转
-                    fastJumpToRow(foundIndex);
+                    if (!fastJumpToRow(foundIndex)) {
+                        render();
+                        setTimeout(() => fastJumpToRow(foundIndex), 10);
+                    }
                 }
                 
                 return true;
@@ -625,6 +619,7 @@
                 let constraints;
                 
                 if (isIPadPro) {
+                    // iPad Pro 优化：降低分辨率提高速度，增加帧率
                     constraints = {
                         video: {
                             facingMode: { exact: "environment" },
@@ -635,6 +630,7 @@
                     };
                     console.log("iPad Pro M4 优化模式已启用");
                 } else {
+                    // 默认配置
                     constraints = {
                         video: {
                             facingMode: { exact: "environment" },
@@ -658,6 +654,7 @@
                     };
                 }
                 
+                // 增强解码配置
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -680,6 +677,7 @@
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
                 
+                // iPad Pro 优化：更快的解码间隔
                 if (isIPadPro) {
                     reader.timeBetweenDecodingAttempts = 40;
                 } else {
@@ -698,6 +696,7 @@
                 
                 showToast(isIPadPro ? "iPad Pro 优化模式已启动 | 距离20-30cm最佳" : "SupeRapido 智能识别已启动", false);
                 
+                // 增强对焦控制
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -767,15 +766,12 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表<tr></tr>';
                 return;
             }
             
-            // 计算每列宽度（平均分配）
-            const colWidth = Math.max(100, Math.floor(100 / columns.length * 10) / 10);
-            
             thead.innerHTML = `<tr>${columns.map(col => `
-                <th style="width: ${widths[col] || colWidth}%; position: relative; min-width: 80px;">
+                <th style="width: ${widths[col] || 130}px; position: relative;">
                     ${col}
                     <div class="resizer" 
                          ontouchstart="startResize(event, '${col}')"
@@ -796,20 +792,19 @@
                                     placeholder="0"
                                     inputmode="numeric" />` :
                                 `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
-                                    class="w-full p-2 text-sm outline-none bg-transparent"
+                                    class="w-full p-2 text-xs outline-none bg-transparent"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
-                        </td>
+                        </tr>
                     `).join('')}
-                </table>
+                </tr>
             `).join('');
             
-            // 如果有待跳转的行，立即跳转
             if (pendingJump !== null) {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     fastJumpToRow(pendingJump);
                     pendingJump = null;
-                }, 50);
+                });
             }
         }
         
@@ -838,9 +833,7 @@
         function startResize(e, col) {
             e.preventDefault();
             const startX = e.touches[0].pageX;
-            const th = document.getElementById(`th-${col}`);
-            const currentWidth = th ? th.offsetWidth : 100;
-            resizeInfo = { col, startX, startWidth: currentWidth };
+            resizeInfo = { col, startX, startWidth: widths[col] || 130 };
         }
         
         function onResize(e, col) {
@@ -849,8 +842,7 @@
             const delta = e.touches[0].pageX - resizeInfo.startX;
             const newWidth = Math.max(60, resizeInfo.startWidth + delta);
             widths[col] = newWidth;
-            const th = document.querySelector(`#mainTable th:has(.resizer[ontouchstart*="${col}"])`);
-            if (th) th.style.width = newWidth + 'px';
+            render();
         }
         
         function endResize(e, col) {
