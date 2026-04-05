@@ -67,12 +67,14 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             position: relative;
-            max-height: 50vh;
+            width: 100%;
         }
+        /* 表格自适应铺满 */
         table { 
             border-collapse: collapse; 
-            min-width: 600px;
             width: 100%;
+            min-width: 100%;
+            table-layout: auto;
         }
         th { 
             position: sticky; 
@@ -93,8 +95,9 @@
             white-space: nowrap;
         }
         .qty-input { 
-            width: 100px;
+            width: 100%;
             min-width: 80px;
+            max-width: 120px;
             height: 50px; 
             border: 3px solid #3b82f6 !important; 
             text-align: center; 
@@ -274,21 +277,20 @@
         #manualInput:focus {
             border-color: #3b82f6;
         }
-        .top-bar {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            padding: 16px;
-            text-align: center;
-        }
         @media (max-width: 640px) {
             .action-btn { font-size: 10px; padding: 10px 2px; }
             .bottom-btn { font-size: 14px; padding: 12px 4px; }
-            .qty-input { height: 45px; font-size: 1.1rem; width: 80px; }
+            .qty-input { height: 45px; font-size: 1.1rem; min-width: 70px; }
             .cam-btn-large { font-size: 24px; }
             .bottom-fixed-btns { padding: 8px 12px; }
             .scrollable-area { padding: 0 12px 70px 12px; }
         }
         .keyboard-open .scrollable-area {
             padding-bottom: 260px;
+        }
+        /* 列宽自动调整 */
+        .col-auto {
+            width: auto;
         }
     </style>
 </head>
@@ -498,36 +500,29 @@
             return cleaned;
         }
 
-        // 严格匹配函数 - 只有精确匹配才算成功
         function exactMatch(code, dbValue) {
             if (!code || !dbValue) return false;
             
             const codeStr = String(code).trim();
             const dbStr = String(dbValue).trim();
             
-            // 1. 精确匹配
             if (codeStr === dbStr) return true;
             
-            // 2. 预处理后匹配（处理格式问题）
             const processedCode = preprocessCode(codeStr);
             const processedDb = preprocessCode(dbStr);
             if (processedCode === processedDb) return true;
             
-            // 3. 忽略大小写匹配
             if (codeStr.toLowerCase() === dbStr.toLowerCase()) return true;
             
-            // 4. 数字匹配（处理前导零，但必须完全一致）
             if (/^\d+$/.test(codeStr) && /^\d+$/.test(dbStr)) {
                 const codeNum = codeStr.replace(/^0+/, '');
                 const dbNum = dbStr.replace(/^0+/, '');
-                // 去掉前导零后必须完全相同
                 if (codeNum === dbNum && codeNum.length > 0) return true;
             }
             
             return false;
         }
 
-        // 检查条码是否在数据库中（严格模式）
         function isBarcodeInDatabase(code) {
             if (!code || db.length === 0) return false;
             
@@ -535,7 +530,6 @@
             
             for (let i = 0; i < db.length; i++) {
                 const row = db[i];
-                // 遍历所有字段进行严格匹配
                 for (let key in row) {
                     const val = String(row[key] || '').trim();
                     if (exactMatch(codeStr, val)) {
@@ -546,7 +540,6 @@
             return false;
         }
 
-        // 查找条码所在行（严格模式）
         function findBarcodeRow(code) {
             if (!code || db.length === 0) return -1;
             
@@ -639,28 +632,24 @@
             }, 150);
         }
 
-        // 修正后的条码处理函数 - 严格验证
         function handleBarcode(code, fromCamera = false) {
             if (!code) return false;
             
             const now = Date.now();
             const codeStr = String(code).trim();
             
-            // 防重复
             if (codeStr === lastCode && (now - lastTime) < 200) {
                 return false;
             }
             lastCode = codeStr;
             lastTime = now;
             
-            // 关键修复：先检查条码是否在数据库中
             if (!isBarcodeInDatabase(codeStr)) {
                 playBeep(false);
                 showToast(`❌ 条码不存在: ${codeStr.substring(0, 20)}`, true);
                 return false;
             }
             
-            // 查找条码所在行
             const foundIndex = findBarcodeRow(codeStr);
             
             if (foundIndex !== -1) {
@@ -682,7 +671,6 @@
                 }
                 return true;
             } else {
-                // 理论上不会到这里，因为已经检查过存在性，但为了安全保留
                 playBeep(false);
                 showToast(`❌ 未找到: ${codeStr.substring(0, 20)}`, true);
                 return false;
@@ -841,6 +829,73 @@
             scanUI.style.display = 'none';
         }
 
+        // 自动调整列宽函数
+        function autoAdjustColumns() {
+            const table = document.getElementById('mainTable');
+            if (!table) return;
+            
+            const colCount = columns.length;
+            if (colCount === 0) return;
+            
+            // 获取所有th和td
+            const headers = table.querySelectorAll('thead th');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            if (headers.length === 0) return;
+            
+            // 计算每列的最大内容宽度
+            const colMaxWidths = new Array(colCount).fill(0);
+            
+            // 计算表头宽度
+            headers.forEach((th, idx) => {
+                if (idx < colCount) {
+                    const headerText = th.textContent || '';
+                    let headerWidth = headerText.length * 14 + 40;
+                    colMaxWidths[idx] = Math.max(colMaxWidths[idx], Math.min(headerWidth, 200));
+                }
+            });
+            
+            // 计算每行每列的内容宽度
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach((cell, idx) => {
+                    if (idx < colCount) {
+                        const input = cell.querySelector('input');
+                        let text = '';
+                        if (input) {
+                            text = input.value || input.placeholder || '';
+                        } else {
+                            text = cell.textContent || '';
+                        }
+                        let textWidth = 0;
+                        for (let i = 0; i < text.length; i++) {
+                            const code = text.charCodeAt(i);
+                            if (code >= 0x4e00 && code <= 0x9fff) {
+                                textWidth += 16;
+                            } else if (code >= 0x30 && code <= 0x39) {
+                                textWidth += 8;
+                            } else {
+                                textWidth += 10;
+                            }
+                        }
+                        textWidth = Math.max(textWidth + 30, 80);
+                        textWidth = Math.min(textWidth, 250);
+                        if (textWidth > colMaxWidths[idx]) {
+                            colMaxWidths[idx] = textWidth;
+                        }
+                    }
+                });
+            });
+            
+            // 应用列宽
+            headers.forEach((th, idx) => {
+                if (idx < colCount && colMaxWidths[idx] > 0) {
+                    th.style.width = colMaxWidths[idx] + 'px';
+                    th.style.minWidth = colMaxWidths[idx] + 'px';
+                }
+            });
+        }
+
         function render() {
             const thead = document.getElementById('tHead');
             const tbody = document.getElementById('tBody');
@@ -850,8 +905,10 @@
                 return;
             }
             
-            thead.innerHTML = `<tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr>`;
+            // 渲染表头
+            thead.innerHTML = `<tr>${columns.map(col => `<th>${col}</th>`).join('')}</thead>`;
             
+            // 渲染表体
             tbody.innerHTML = db.map((row, idx) => `
                 <tr id="row-${idx}">
                     ${columns.map(col => `
@@ -865,13 +922,18 @@
                                     inputmode="numeric" />` :
                                 `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
                                     class="w-full p-2 text-sm outline-none bg-transparent"
-                                    style="min-width:80px;"
+                                    style="min-width:80px; width:100%;"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
-                        </tr>
+                        </td>
                     `).join('')}
                 </tr>
             `).join('');
+            
+            // 自动调整列宽
+            setTimeout(() => {
+                autoAdjustColumns();
+            }, 50);
             
             if (pendingJump !== null) {
                 setTimeout(() => {
@@ -1083,6 +1145,11 @@
             }
         }
         
+        // 窗口大小改变时重新调整列宽
+        window.addEventListener('resize', () => {
+            setTimeout(() => autoAdjustColumns(), 100);
+        });
+        
         window.addEventListener('beforeunload', () => {
             if (scanning) {
                 stopScanning(true);
@@ -1128,7 +1195,7 @@
             hideKeyboard();
         };
         
-        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 严格验证模式已启用`);
+        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 表格自动铺满`);
     </script>
 </body>
 </html>
