@@ -33,7 +33,6 @@
             flex-direction: column;
             padding: 16px;
         }
-        /* 表格容器 - 支持左右滑动 */
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
@@ -42,15 +41,13 @@
             overflow-x: auto;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            touch-action: pan-x pan-y pinch-zoom;
             position: relative;
             min-height: 300px;
         }
-        /* 表格 - 固定最小宽度确保可滑动 */
         table { 
             border-collapse: collapse; 
-            min-width: 800px;
-            width: max-content;
+            min-width: 600px;
+            width: 100%;
         }
         th { 
             position: sticky; 
@@ -70,24 +67,13 @@
             padding: 8px;
             white-space: nowrap;
         }
-        /* 实际数量列特殊样式 */
-        td:first-child, th:first-child {
-            position: sticky;
-            left: 0;
-            background: white;
-            z-index: 10;
-        }
-        th:first-child {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            z-index: 51;
-        }
         .qty-input { 
-            width: 120px;
-            min-width: 100px;
-            height: 55px; 
+            width: 100px;
+            min-width: 80px;
+            height: 50px; 
             border: 3px solid #3b82f6 !important; 
             text-align: center; 
-            font-size: 1.5rem; 
+            font-size: 1.3rem; 
             font-weight: 900; 
             color: #1e40af; 
             border-radius: 10px; 
@@ -102,10 +88,6 @@
         }
         .row-focus { 
             background: linear-gradient(90deg, #fef08a 0%, #fde047 100%) !important;
-        }
-        @keyframes highlight {
-            0%, 100% { background: linear-gradient(90deg, #fef08a 0%, #fde047 100%); }
-            50% { background: linear-gradient(90deg, #fde047 0%, #fef08a 100%); }
         }
         #toast { 
             position: fixed; 
@@ -164,7 +146,7 @@
             height: 4px; 
             background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
             top: 0; 
-            animation: scanLineMove 1s infinite ease-in-out; 
+            animation: scanLineMove 1.2s infinite ease-in-out; 
             box-shadow: 0 0 20px #3b82f6;
         }
         @keyframes scanLineMove { 
@@ -283,13 +265,9 @@
             .content-area { padding: 12px; }
             .action-btn { font-size: 10px; padding: 10px 2px; }
             .bottom-btn { font-size: 14px; padding: 12px 4px; }
-            .qty-input { height: 48px; font-size: 1.2rem; width: 100px; }
+            .qty-input { height: 45px; font-size: 1.1rem; width: 80px; }
             .cam-btn-large { font-size: 24px; }
             .bottom-fixed-btns { padding: 8px 12px; }
-        }
-        @media (min-width: 768px) {
-            .action-btn { font-size: 14px; }
-            .bottom-btn { font-size: 18px; }
         }
     </style>
 </head>
@@ -336,7 +314,6 @@
                 </button>
             </div>
 
-            <!-- 表格容器 - 支持左右滑动 -->
             <div class="table-container">
                 <table id="mainTable">
                     <thead id="tHead"></thead>
@@ -371,7 +348,7 @@
             </div>
             <div class="absolute bottom-8 left-0 right-0 text-center">
                 <div class="bg-black/70 backdrop-blur text-white px-4 py-2 rounded-full inline-block text-sm font-bold border-2 border-blue-500">
-                    📷 将条码对准扫描框 (距离20-30cm最佳)
+                    📷 将条码对准扫描框
                 </div>
             </div>
         </div>
@@ -389,9 +366,6 @@
         let lastTime = 0;
         let currentFocusInterval = null;
         let pendingJump = null;
-
-        const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
-        const isIPadPro = isIPad && (screen.width >= 1024 || screen.height >= 1366);
 
         function loadData() {
             try {
@@ -462,28 +436,20 @@
             }
         }
 
-        // 跳转到指定行并聚焦实际数量输入框
         function jumpToRowAndFocusQty(foundIndex) {
             const rowEl = document.getElementById(`row-${foundIndex}`);
             if (rowEl) {
-                // 移除所有高亮
                 document.querySelectorAll('#mainTable tbody tr').forEach(tr => {
                     tr.classList.remove('row-focus');
                 });
-                
-                // 添加高亮
                 rowEl.classList.add('row-focus');
-                
-                // 滚动到该行
                 rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                // 聚焦到实际数量输入框（第一列）
                 const qtyInput = document.getElementById(`qty-${foundIndex}`);
                 if (qtyInput) {
                     setTimeout(() => {
                         qtyInput.focus();
                         qtyInput.select();
-                        // 添加视觉反馈
                         qtyInput.style.transform = 'scale(1.02)';
                         qtyInput.style.borderColor = '#10b981';
                         qtyInput.style.backgroundColor = '#fef9c3';
@@ -501,7 +467,7 @@
             return false;
         }
 
-        function stopScanningAndJump(foundIndex, productName) {
+        function stopScanningAndJump(foundIndex) {
             pendingJump = foundIndex;
             scanning = false;
             
@@ -539,7 +505,7 @@
             const now = Date.now();
             const codeStr = String(code).trim();
             
-            if (codeStr === lastCode && (now - lastTime) < 100) {
+            if (codeStr === lastCode && (now - lastTime) < 200) {
                 return false;
             }
             lastCode = codeStr;
@@ -583,7 +549,7 @@
                 }
                 
                 if (fromCamera) {
-                    stopScanningAndJump(foundIndex, productName);
+                    stopScanningAndJump(foundIndex);
                 } else {
                     jumpToRowAndFocusQty(foundIndex);
                 }
@@ -595,6 +561,7 @@
             }
         }
 
+        // 超灵敏扫码配置 - 大幅提升灵敏度
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -613,26 +580,15 @@
             }
             
             try {
-                let constraints;
-                if (isIPadPro) {
-                    constraints = {
-                        video: {
-                            facingMode: { exact: "environment" },
-                            width: { ideal: 1280, min: 960 },
-                            height: { ideal: 720, min: 540 },
-                            frameRate: { ideal: 60, min: 30 }
-                        }
-                    };
-                } else {
-                    constraints = {
-                        video: {
-                            facingMode: { exact: "environment" },
-                            width: { ideal: 1920, min: 1280 },
-                            height: { ideal: 1080, min: 720 },
-                            frameRate: { ideal: 30, min: 15 }
-                        }
-                    };
-                }
+                // 超灵敏摄像头配置
+                const constraints = {
+                    video: {
+                        facingMode: { exact: "environment" },
+                        width: { ideal: 1920, min: 1280 },
+                        height: { ideal: 1080, min: 720 },
+                        frameRate: { ideal: 60, min: 30 }
+                    }
+                };
                 
                 let finalConstraints = constraints;
                 try {
@@ -647,6 +603,7 @@
                     };
                 }
                 
+                // 极速解码配置 - TRY_HARDER 提高灵敏度
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -668,7 +625,8 @@
                 hints.set(ZXing.DecodeHintType.RETURN_CODABAR_START_END, true);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                reader.timeBetweenDecodingAttempts = isIPadPro ? 40 : 50;
+                // 极速解码间隔 - 20ms 最高灵敏度
+                reader.timeBetweenDecodingAttempts = 20;
                 
                 await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
                     if (result && scanning) {
@@ -679,8 +637,9 @@
                     }
                 });
                 
-                showToast(isIPadPro ? "iPad Pro 优化模式已启动" : "SupeRapido 智能识别已启动", false);
+                showToast("超灵敏扫描已启动 | 对准条码即可识别", false);
                 
+                // 高频对焦 - 每500ms对焦一次
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -701,14 +660,9 @@
                                     advanced: [{ exposureMode: 'continuous' }]
                                 }).catch(() => {});
                             }
-                            if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) {
-                                track.applyConstraints({
-                                    advanced: [{ whiteBalanceMode: 'continuous' }]
-                                }).catch(() => {});
-                            }
                         }
                     }
-                }, isIPadPro ? 800 : 1000);
+                }, 500);
                 
                 currentFocusInterval = focusInterval;
                 
@@ -746,7 +700,7 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表<tr></tr>';
                 return;
             }
             
@@ -754,7 +708,7 @@
             
             tbody.innerHTML = db.map((row, idx) => `
                 <tr id="row-${idx}">
-                    ${columns.map((col, colIdx) => `
+                    ${columns.map(col => `
                         <td>
                             ${col === '实际数量' ? 
                                 `<input id="qty-${idx}" type="number" value="${row[col] || ''}" 
@@ -765,7 +719,7 @@
                                     inputmode="numeric" />` :
                                 `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
                                     class="w-full p-2 text-sm outline-none bg-transparent"
-                                    style="min-width:80px; white-space:nowrap;"
+                                    style="min-width:80px;"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
                         </td>
@@ -1017,7 +971,7 @@
             }
         };
         
-        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 已启动 | 扫码自动跳转数量单元格 | 表格支持左右滑动`);
+        console.log(`⚡ 飞速盘点 ${VERSION} - 超灵敏扫码模式已启动 | 解码间隔20ms | 对焦间隔500ms`);
     </script>
 </body>
 </html>
