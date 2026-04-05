@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <title>飞速盘点 S1.8 - SupeRapido</title>
+    <title>飞速盘点 S1.9 - 超灵敏扫码版</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.19.1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -192,6 +192,7 @@
             text-overflow: ellipsis;
             cursor: pointer;
         }
+        /* 底部按钮 - 始终在键盘上方 */
         .bottom-fixed-btns {
             position: fixed;
             bottom: 0;
@@ -202,6 +203,16 @@
             box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
             z-index: 100;
             border-top: 1px solid #e2e8f0;
+            transition: bottom 0.3s ease;
+        }
+        /* 键盘弹出时按钮上移 */
+        .keyboard-open .bottom-fixed-btns {
+            bottom: 300px;
+        }
+        @media (max-width: 768px) {
+            .keyboard-open .bottom-fixed-btns {
+                bottom: 260px;
+            }
         }
         .bottom-btns {
             display: grid;
@@ -292,7 +303,7 @@
             <div class="flex items-center justify-center gap-3">
                 <span class="text-2xl">⚡</span>
                 <h1 class="text-2xl font-black tracking-tight">飞速盘点</h1>
-                <div class="version-badge">S1.8</div>
+                <div class="version-badge">S1.9</div>
             </div>
         </div>
 
@@ -355,7 +366,7 @@
     </div>
 
     <script>
-        const VERSION = "S1.8";
+        const VERSION = "S1.9";
         const STORAGE_KEY = "FEISUPANDIAN_" + VERSION;
         
         let db = [];
@@ -366,6 +377,35 @@
         let lastTime = 0;
         let currentFocusInterval = null;
         let pendingJump = null;
+        let currentInputElement = null;
+
+        // 检测设备类型
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+        const isMobile = isAndroid || isIPad || /iPhone/i.test(navigator.userAgent);
+
+        // 监听键盘弹出/收起
+        function setupKeyboardListener() {
+            if (!isMobile) return;
+            
+            window.addEventListener('resize', () => {
+                if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                    document.body.classList.add('keyboard-open');
+                } else {
+                    document.body.classList.remove('keyboard-open');
+                }
+            });
+        }
+
+        // 隐藏键盘
+        function hideKeyboard() {
+            if (currentInputElement) {
+                currentInputElement.blur();
+                currentInputElement = null;
+            }
+            document.activeElement?.blur();
+            document.body.classList.remove('keyboard-open');
+        }
 
         function loadData() {
             try {
@@ -447,12 +487,25 @@
                 
                 const qtyInput = document.getElementById(`qty-${foundIndex}`);
                 if (qtyInput) {
+                    currentInputElement = qtyInput;
                     setTimeout(() => {
                         qtyInput.focus();
                         qtyInput.select();
                         qtyInput.style.transform = 'scale(1.02)';
                         qtyInput.style.borderColor = '#10b981';
                         qtyInput.style.backgroundColor = '#fef9c3';
+                        
+                        // 监听输入完成（回车或失焦时隐藏键盘）
+                        const handleInputComplete = function(e) {
+                            if (e.type === 'blur' || (e.type === 'keypress' && e.key === 'Enter')) {
+                                hideKeyboard();
+                                qtyInput.removeEventListener('blur', handleInputComplete);
+                                qtyInput.removeEventListener('keypress', handleInputComplete);
+                            }
+                        };
+                        qtyInput.addEventListener('blur', handleInputComplete);
+                        qtyInput.addEventListener('keypress', handleInputComplete);
+                        
                         setTimeout(() => {
                             if (qtyInput) {
                                 qtyInput.style.transform = '';
@@ -561,7 +614,7 @@
             }
         }
 
-        // 超灵敏扫码配置 - 大幅提升灵敏度
+        // 超灵敏扫码配置 - 针对安卓和iPad分别优化
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -580,15 +633,28 @@
             }
             
             try {
-                // 超灵敏摄像头配置
-                const constraints = {
-                    video: {
-                        facingMode: { exact: "environment" },
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        frameRate: { ideal: 60, min: 30 }
-                    }
-                };
+                // 根据设备类型优化摄像头配置
+                let constraints;
+                if (isAndroid) {
+                    // 安卓优化：降低分辨率提高帧率
+                    constraints = {
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1280, min: 960 },
+                            height: { ideal: 720, min: 540 },
+                            frameRate: { ideal: 60, min: 30 }
+                        }
+                    };
+                } else {
+                    constraints = {
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1920, min: 1280 },
+                            height: { ideal: 1080, min: 720 },
+                            frameRate: { ideal: 60, min: 30 }
+                        }
+                    };
+                }
                 
                 let finalConstraints = constraints;
                 try {
@@ -603,7 +669,7 @@
                     };
                 }
                 
-                // 极速解码配置 - TRY_HARDER 提高灵敏度
+                // 极速解码配置
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -625,8 +691,8 @@
                 hints.set(ZXing.DecodeHintType.RETURN_CODABAR_START_END, true);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                // 极速解码间隔 - 20ms 最高灵敏度
-                reader.timeBetweenDecodingAttempts = 20;
+                // 安卓和iPad都用最快的解码间隔
+                reader.timeBetweenDecodingAttempts = 15;
                 
                 await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
                     if (result && scanning) {
@@ -637,9 +703,9 @@
                     }
                 });
                 
-                showToast("超灵敏扫描已启动 | 对准条码即可识别", false);
+                showToast(isAndroid ? "安卓超灵敏模式已启动" : "超灵敏扫描已启动", false);
                 
-                // 高频对焦 - 每500ms对焦一次
+                // 高频对焦 - 400ms
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -662,7 +728,7 @@
                             }
                         }
                     }
-                }, 500);
+                }, 400);
                 
                 currentFocusInterval = focusInterval;
                 
@@ -749,6 +815,8 @@
             db[rowIndex]['实际数量'] = value;
             saveData();
             showToast("已保存", false);
+            // 保存后自动隐藏键盘
+            hideKeyboard();
         }
         
         function updateCell(rowIndex, col, value) {
@@ -942,8 +1010,16 @@
             }
         });
         
+        // 点击空白区域隐藏键盘
+        document.addEventListener('touchstart', function(e) {
+            if (currentInputElement && !e.target.closest('.qty-input')) {
+                hideKeyboard();
+            }
+        });
+        
         loadData();
         render();
+        setupKeyboardListener();
         
         document.getElementById('confirmBtn').onclick = () => {
             const input = document.getElementById('manualInput');
@@ -951,6 +1027,7 @@
                 handleBarcode(input.value, false);
                 input.value = '';
             }
+            hideKeyboard();
         };
         
         document.getElementById('manualInput').onkeypress = (e) => {
@@ -960,6 +1037,7 @@
                     handleBarcode(input.value, false);
                     input.value = '';
                 }
+                hideKeyboard();
             }
         };
         
@@ -969,9 +1047,10 @@
             } else {
                 startScanning();
             }
+            hideKeyboard();
         };
         
-        console.log(`⚡ 飞速盘点 ${VERSION} - 超灵敏扫码模式已启动 | 解码间隔20ms | 对焦间隔500ms`);
+        console.log(`⚡ 飞速盘点 ${VERSION} - 超灵敏扫码模式已启动 | 安卓/iPad双优化 | 键盘自动隐藏`);
     </script>
 </body>
 </html>
