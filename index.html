@@ -41,6 +41,7 @@
             background: white;
             z-index: 20;
         }
+        /* 底部按钮 - 使用 transform 实现动态上移 */
         .bottom-fixed-btns {
             position: fixed;
             bottom: 0;
@@ -51,13 +52,30 @@
             box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
             z-index: 100;
             border-top: 1px solid #e2e8f0;
+            transition: bottom 0.3s ease-out;
+        }
+        /* 键盘弹出时按钮上移到键盘上方 */
+        .keyboard-open .bottom-fixed-btns {
+            bottom: 320px;
+        }
+        /* iPad 大屏幕适配 */
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .keyboard-open .bottom-fixed-btns {
+                bottom: 350px;
+            }
+        }
+        /* iPad Pro 12.9寸 */
+        @media (min-width: 1024px) and (min-height: 1366px) {
+            .keyboard-open .bottom-fixed-btns {
+                bottom: 400px;
+            }
         }
         .scrollable-area {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
-            padding: 0 16px 80px 16px;
+            padding: 0 16px 16px 16px;
         }
         .table-container { 
             background: white; 
@@ -68,8 +86,8 @@
             -webkit-overflow-scrolling: touch;
             position: relative;
             width: 100%;
+            margin-bottom: 16px;
         }
-        /* 表格自适应铺满 */
         table { 
             border-collapse: collapse; 
             width: 100%;
@@ -283,14 +301,14 @@
             .qty-input { height: 45px; font-size: 1.1rem; min-width: 70px; }
             .cam-btn-large { font-size: 24px; }
             .bottom-fixed-btns { padding: 8px 12px; }
-            .scrollable-area { padding: 0 12px 70px 12px; }
+            .scrollable-area { padding: 0 12px 16px 12px; }
+            .keyboard-open .bottom-fixed-btns {
+                bottom: 260px;
+            }
         }
+        /* 滚动区域在键盘弹出时增加内边距 */
         .keyboard-open .scrollable-area {
-            padding-bottom: 260px;
-        }
-        /* 列宽自动调整 */
-        .col-auto {
-            width: auto;
+            padding-bottom: 100px;
         }
     </style>
 </head>
@@ -350,6 +368,7 @@
         </div>
     </div>
 
+    <!-- 底部固定按钮 - 键盘弹出时自动上移 -->
     <div class="bottom-fixed-btns">
         <div class="bottom-btns">
             <button id="scanBtn" class="bottom-btn bg-blue-600 text-white shadow-lg cam-btn-large">
@@ -394,15 +413,47 @@
         let currentFocusInterval = null;
         let pendingJump = null;
         let currentInputElement = null;
+        let originalViewportHeight = window.innerHeight;
 
         const isAndroid = /Android/i.test(navigator.userAgent);
         const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
         const isMobile = isAndroid || isIPad || /iPhone/i.test(navigator.userAgent);
 
+        // 监听键盘弹出/收起 - 使用 Visual Viewport API 更精确
         function setupKeyboardListener() {
             if (!isMobile) return;
+            
+            // 使用 Visual Viewport API 检测键盘
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', () => {
+                    const currentHeight = window.visualViewport.height;
+                    const keyboardHeight = originalViewportHeight - currentHeight;
+                    
+                    if (keyboardHeight > 150) {
+                        // 键盘弹出
+                        document.body.classList.add('keyboard-open');
+                    } else {
+                        // 键盘收起
+                        document.body.classList.remove('keyboard-open');
+                        // 收起键盘时，确保滚动到底部的内容能回滚
+                        setTimeout(() => {
+                            if (pendingJump !== null) {
+                                const rowEl = document.getElementById(`row-${pendingJump}`);
+                                if (rowEl) {
+                                    rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                            }
+                        }, 100);
+                    }
+                });
+            }
+            
+            // 备用方案：监听 resize 事件
             window.addEventListener('resize', () => {
-                if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                const currentHeight = window.innerHeight;
+                const keyboardHeight = originalViewportHeight - currentHeight;
+                
+                if (keyboardHeight > 150) {
                     document.body.classList.add('keyboard-open');
                 } else {
                     document.body.classList.remove('keyboard-open');
@@ -829,7 +880,6 @@
             scanUI.style.display = 'none';
         }
 
-        // 自动调整列宽函数
         function autoAdjustColumns() {
             const table = document.getElementById('mainTable');
             if (!table) return;
@@ -837,16 +887,13 @@
             const colCount = columns.length;
             if (colCount === 0) return;
             
-            // 获取所有th和td
             const headers = table.querySelectorAll('thead th');
             const rows = table.querySelectorAll('tbody tr');
             
             if (headers.length === 0) return;
             
-            // 计算每列的最大内容宽度
             const colMaxWidths = new Array(colCount).fill(0);
             
-            // 计算表头宽度
             headers.forEach((th, idx) => {
                 if (idx < colCount) {
                     const headerText = th.textContent || '';
@@ -855,7 +902,6 @@
                 }
             });
             
-            // 计算每行每列的内容宽度
             rows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 cells.forEach((cell, idx) => {
@@ -887,7 +933,6 @@
                 });
             });
             
-            // 应用列宽
             headers.forEach((th, idx) => {
                 if (idx < colCount && colMaxWidths[idx] > 0) {
                     th.style.width = colMaxWidths[idx] + 'px';
@@ -901,14 +946,12 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td> </tr>';
                 return;
             }
             
-            // 渲染表头
-            thead.innerHTML = `<tr>${columns.map(col => `<th>${col}</th>`).join('')}</thead>`;
+            thead.innerHTML = `<tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr>`;
             
-            // 渲染表体
             tbody.innerHTML = db.map((row, idx) => `
                 <tr id="row-${idx}">
                     ${columns.map(col => `
@@ -930,7 +973,6 @@
                 </tr>
             `).join('');
             
-            // 自动调整列宽
             setTimeout(() => {
                 autoAdjustColumns();
             }, 50);
@@ -1145,7 +1187,6 @@
             }
         }
         
-        // 窗口大小改变时重新调整列宽
         window.addEventListener('resize', () => {
             setTimeout(() => autoAdjustColumns(), 100);
         });
@@ -1195,7 +1236,7 @@
             hideKeyboard();
         };
         
-        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 表格自动铺满`);
+        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 扫码按钮始终可见`);
     </script>
 </body>
 </html>
