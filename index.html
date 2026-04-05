@@ -18,31 +18,56 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
         }
         .main-card {
             background: white;
             width: 100%;
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            padding-bottom: 80px;
+            overflow: hidden;
+            position: relative;
         }
-        .content-area {
+        .header-fixed {
+            flex-shrink: 0;
+            background: white;
+            z-index: 20;
+        }
+        .bottom-fixed-btns {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 12px 16px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            z-index: 100;
+            border-top: 1px solid #e2e8f0;
+        }
+        .scrollable-area {
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 16px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 16px 80px 16px;
         }
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
             border-radius: 12px; 
-            flex: 1;
             overflow-x: auto;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             position: relative;
-            min-height: 300px;
+            max-height: 50vh;
         }
         table { 
             border-collapse: collapse; 
@@ -178,7 +203,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
-            margin-bottom: 16px;
+            margin: 16px 0;
         }
         .action-btn {
             padding: 12px 4px;
@@ -191,26 +216,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
             cursor: pointer;
-        }
-        .bottom-fixed-btns {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            padding: 12px 16px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-            z-index: 100;
-            border-top: 1px solid #e2e8f0;
-            transition: bottom 0.3s ease;
-        }
-        .keyboard-open .bottom-fixed-btns {
-            bottom: 300px;
-        }
-        @media (max-width: 768px) {
-            .keyboard-open .bottom-fixed-btns {
-                bottom: 260px;
-            }
         }
         .bottom-btns {
             display: grid;
@@ -265,18 +270,25 @@
             font-size: 16px;
             font-weight: bold;
             outline: none;
-            margin-bottom: 16px;
         }
         #manualInput:focus {
             border-color: #3b82f6;
         }
+        .top-bar {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            padding: 16px;
+            text-align: center;
+        }
         @media (max-width: 640px) {
-            .content-area { padding: 12px; }
             .action-btn { font-size: 10px; padding: 10px 2px; }
             .bottom-btn { font-size: 14px; padding: 12px 4px; }
             .qty-input { height: 45px; font-size: 1.1rem; width: 80px; }
             .cam-btn-large { font-size: 24px; }
             .bottom-fixed-btns { padding: 8px 12px; }
+            .scrollable-area { padding: 0 12px 70px 12px; }
+        }
+        .keyboard-open .scrollable-area {
+            padding-bottom: 260px;
         }
     </style>
 </head>
@@ -297,32 +309,36 @@
     </div>
 
     <div class="main-card">
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
-            <div class="flex items-center justify-center gap-3">
-                <span class="text-2xl">⚡</span>
-                <h1 class="text-2xl font-black tracking-tight">飞速盘点</h1>
-                <div class="version-badge">S1.9</div>
+        <div class="header-fixed">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-2xl">⚡</span>
+                    <h1 class="text-2xl font-black tracking-tight">飞速盘点</h1>
+                    <div class="version-badge">S1.9</div>
+                </div>
+            </div>
+            
+            <div style="padding: 16px 16px 0 16px;">
+                <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." />
+                
+                <div class="btn-group-4">
+                    <button onclick="openColModal()" class="action-btn bg-gray-700 text-white shadow-md">
+                        📊 列管理
+                    </button>
+                    <label class="action-btn bg-emerald-600 text-white shadow-md cursor-pointer">
+                        📂 导入 <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
+                    </label>
+                    <button onclick="exportExcel()" class="action-btn bg-emerald-600 text-white shadow-md">
+                        💾 导出
+                    </button>
+                    <button id="confirmBtn" class="action-btn bg-blue-600 text-white shadow-md">
+                        ✅ 确认
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="content-area">
-            <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." />
-            
-            <div class="btn-group-4">
-                <button onclick="openColModal()" class="action-btn bg-gray-700 text-white shadow-md">
-                    📊 列管理
-                </button>
-                <label class="action-btn bg-emerald-600 text-white shadow-md cursor-pointer">
-                    📂 导入 <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls" />
-                </label>
-                <button onclick="exportExcel()" class="action-btn bg-emerald-600 text-white shadow-md">
-                    💾 导出
-                </button>
-                <button id="confirmBtn" class="action-btn bg-blue-600 text-white shadow-md">
-                    ✅ 确认
-                </button>
-            </div>
-
+        <div class="scrollable-area">
             <div class="table-container">
                 <table id="mainTable">
                     <thead id="tHead"></thead>
@@ -376,17 +392,13 @@
         let currentFocusInterval = null;
         let pendingJump = null;
         let currentInputElement = null;
-        let decodeAttempts = 0;
 
-        // 检测设备类型
         const isAndroid = /Android/i.test(navigator.userAgent);
         const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
         const isMobile = isAndroid || isIPad || /iPhone/i.test(navigator.userAgent);
 
-        // 监听键盘弹出/收起
         function setupKeyboardListener() {
             if (!isMobile) return;
-            
             window.addEventListener('resize', () => {
                 if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
                     document.body.classList.add('keyboard-open');
@@ -396,7 +408,6 @@
             });
         }
 
-        // 隐藏键盘
         function hideKeyboard() {
             if (currentInputElement) {
                 currentInputElement.blur();
@@ -475,26 +486,82 @@
             }
         }
 
-        // 增强的条码预处理 - 处理粗细不匀、印刷不明的问题
         function preprocessCode(code) {
             if (!code) return code;
-            
-            // 移除常见干扰字符
             let cleaned = code.replace(/[^\w\d\-]/g, '');
-            
-            // 处理常见条码格式问题
-            // CODE39 有时会带 * 号
             if (cleaned.startsWith('*') && cleaned.endsWith('*')) {
                 cleaned = cleaned.slice(1, -1);
             }
-            
-            // 处理 UPC/EAN 前导零问题
             if (cleaned.length === 12 && /^\d+$/.test(cleaned)) {
-                // 可能是缺少前导零的 EAN-13
                 cleaned = '0' + cleaned;
             }
-            
             return cleaned;
+        }
+
+        // 严格匹配函数 - 只有精确匹配才算成功
+        function exactMatch(code, dbValue) {
+            if (!code || !dbValue) return false;
+            
+            const codeStr = String(code).trim();
+            const dbStr = String(dbValue).trim();
+            
+            // 1. 精确匹配
+            if (codeStr === dbStr) return true;
+            
+            // 2. 预处理后匹配（处理格式问题）
+            const processedCode = preprocessCode(codeStr);
+            const processedDb = preprocessCode(dbStr);
+            if (processedCode === processedDb) return true;
+            
+            // 3. 忽略大小写匹配
+            if (codeStr.toLowerCase() === dbStr.toLowerCase()) return true;
+            
+            // 4. 数字匹配（处理前导零，但必须完全一致）
+            if (/^\d+$/.test(codeStr) && /^\d+$/.test(dbStr)) {
+                const codeNum = codeStr.replace(/^0+/, '');
+                const dbNum = dbStr.replace(/^0+/, '');
+                // 去掉前导零后必须完全相同
+                if (codeNum === dbNum && codeNum.length > 0) return true;
+            }
+            
+            return false;
+        }
+
+        // 检查条码是否在数据库中（严格模式）
+        function isBarcodeInDatabase(code) {
+            if (!code || db.length === 0) return false;
+            
+            const codeStr = String(code).trim();
+            
+            for (let i = 0; i < db.length; i++) {
+                const row = db[i];
+                // 遍历所有字段进行严格匹配
+                for (let key in row) {
+                    const val = String(row[key] || '').trim();
+                    if (exactMatch(codeStr, val)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // 查找条码所在行（严格模式）
+        function findBarcodeRow(code) {
+            if (!code || db.length === 0) return -1;
+            
+            const codeStr = String(code).trim();
+            
+            for (let i = 0; i < db.length; i++) {
+                const row = db[i];
+                for (let key in row) {
+                    const val = String(row[key] || '').trim();
+                    if (exactMatch(codeStr, val)) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
         }
 
         function jumpToRowAndFocusQty(foundIndex) {
@@ -572,81 +639,29 @@
             }, 150);
         }
 
-        // 增强的条码匹配算法 - 处理印刷问题
-        function fuzzyMatch(code, dbValue) {
-            if (!code || !dbValue) return false;
-            
-            const codeStr = String(code).trim();
-            const dbStr = String(dbValue).trim();
-            
-            // 精确匹配
-            if (codeStr === dbStr) return true;
-            
-            // 预处理后匹配
-            const processedCode = preprocessCode(codeStr);
-            const processedDb = preprocessCode(dbStr);
-            if (processedCode === processedDb) return true;
-            
-            // 忽略大小写匹配
-            if (codeStr.toLowerCase() === dbStr.toLowerCase()) return true;
-            
-            // 数字匹配（处理前导零问题）
-            if (/^\d+$/.test(codeStr) && /^\d+$/.test(dbStr)) {
-                // 去掉前导零后比较
-                const codeNum = codeStr.replace(/^0+/, '');
-                const dbNum = dbStr.replace(/^0+/, '');
-                if (codeNum === dbNum && codeNum.length > 0) return true;
-            }
-            
-            // 包含匹配（用于部分匹配）
-            if (dbStr.length > 5 && dbStr.includes(codeStr)) return true;
-            if (codeStr.length > 5 && codeStr.includes(dbStr)) return true;
-            
-            return false;
-        }
-
+        // 修正后的条码处理函数 - 严格验证
         function handleBarcode(code, fromCamera = false) {
             if (!code) return false;
             
             const now = Date.now();
-            let codeStr = String(code).trim();
+            const codeStr = String(code).trim();
             
-            // 预处理条码
-            codeStr = preprocessCode(codeStr);
-            
+            // 防重复
             if (codeStr === lastCode && (now - lastTime) < 200) {
                 return false;
             }
             lastCode = codeStr;
             lastTime = now;
             
-            let foundIndex = -1;
-            const codeLower = codeStr.toLowerCase();
-            
-            // 增强的搜索算法
-            for (let i = 0; i < db.length; i++) {
-                const row = db[i];
-                // 遍历所有字段进行模糊匹配
-                for (let key in row) {
-                    const val = String(row[key] || '').trim();
-                    if (fuzzyMatch(codeStr, val)) {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-                if (foundIndex !== -1) break;
-                
-                // 包含匹配（针对名称字段）
-                for (let key in row) {
-                    const val = String(row[key] || '').trim().toLowerCase();
-                    if (val && val.includes(codeLower) && 
-                        (key === '商品名称' || key === '名称' || key === '编码' || key === '条码' || key === '商品编码')) {
-                        foundIndex = i;
-                        break;
-                    }
-                }
-                if (foundIndex !== -1) break;
+            // 关键修复：先检查条码是否在数据库中
+            if (!isBarcodeInDatabase(codeStr)) {
+                playBeep(false);
+                showToast(`❌ 条码不存在: ${codeStr.substring(0, 20)}`, true);
+                return false;
             }
+            
+            // 查找条码所在行
+            const foundIndex = findBarcodeRow(codeStr);
             
             if (foundIndex !== -1) {
                 playBeep(true);
@@ -667,13 +682,13 @@
                 }
                 return true;
             } else {
+                // 理论上不会到这里，因为已经检查过存在性，但为了安全保留
                 playBeep(false);
                 showToast(`❌ 未找到: ${codeStr.substring(0, 20)}`, true);
                 return false;
             }
         }
 
-        // 超灵敏扫码配置 - 针对粗细不匀、印刷不明优化
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -692,7 +707,6 @@
             }
             
             try {
-                // 针对印刷问题的摄像头优化
                 let constraints;
                 if (isAndroid) {
                     constraints = {
@@ -727,7 +741,6 @@
                     };
                 }
                 
-                // 超级解码配置 - 针对粗细不匀、印刷不明
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -735,7 +748,6 @@
                 hints.set(ZXing.DecodeHintType.RETURN_CODABAR_START_END, true);
                 hints.set(ZXing.DecodeHintType.ASSUME_CODE_39_CHECK_DIGIT, false);
                 hints.set(ZXing.DecodeHintType.ASSUME_GS1, false);
-                // 启用所有可能的条码格式
                 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
                     ZXing.BarcodeFormat.QR_CODE,
                     ZXing.BarcodeFormat.EAN_13,
@@ -756,7 +768,6 @@
                 ]);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                // 极速解码间隔 - 10ms 最高灵敏度
                 reader.timeBetweenDecodingAttempts = 10;
                 
                 await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
@@ -770,7 +781,6 @@
                 
                 showToast("SupeRapido 智能识别已启动", false);
                 
-                // 高频对焦和曝光控制 - 300ms
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
                     if (!scanning) {
@@ -791,7 +801,6 @@
                                     advanced: [{ exposureMode: 'continuous' }]
                                 }).catch(() => {});
                             }
-                            // 尝试设置曝光补偿
                             if (caps.exposureCompensation) {
                                 track.applyConstraints({
                                     advanced: [{ exposureCompensation: 0 }]
@@ -837,7 +846,7 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表<tr></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
                 return;
             }
             
@@ -859,7 +868,7 @@
                                     style="min-width:80px;"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
-                        </td>
+                        </tr>
                     `).join('')}
                 </tr>
             `).join('');
@@ -1080,9 +1089,8 @@
             }
         });
         
-        // 点击空白区域隐藏键盘
         document.addEventListener('touchstart', function(e) {
-            if (currentInputElement && !e.target.closest('.qty-input')) {
+            if (currentInputElement && !e.target.closest('.qty-input') && !e.target.closest('#manualInput')) {
                 hideKeyboard();
             }
         });
@@ -1120,7 +1128,7 @@
             hideKeyboard();
         };
         
-        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 支持粗细不匀/印刷不明条码`);
+        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 智能识别引擎已启动 | 严格验证模式已启用`);
     </script>
 </body>
 </html>
