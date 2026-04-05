@@ -10,49 +10,47 @@
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
         body { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
             min-height: 100vh;
-            padding: 12px;
         }
         .main-card {
             background: white;
-            border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
-            max-width: 1200px;
-            margin: 0 auto;
             width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 80px;
         }
-        /* 平板和PC自适应 */
-        @media (min-width: 768px) {
-            body { padding: 20px; }
-            .main-card { max-width: 900px; }
-            .table-container { height: 55vh; }
-            .qty-input { height: 65px; font-size: 1.8rem; }
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
         }
-        @media (min-width: 1024px) {
-            .main-card { max-width: 1100px; }
-            .table-container { height: 60vh; }
-        }
+        /* 表格容器 - 支持左右滑动 */
         .table-container { 
             background: white; 
             border: 1px solid #e2e8f0; 
-            height: 45vh; 
-            overflow: auto; 
             border-radius: 12px; 
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-x pan-y pinch-zoom;
             position: relative;
+            min-height: 300px;
         }
+        /* 表格 - 固定最小宽度确保可滑动 */
         table { 
-            border-collapse: separate; 
-            border-spacing: 0; 
-            table-layout: fixed; 
+            border-collapse: collapse; 
+            min-width: 800px;
             width: max-content;
-            min-width: 100%;
         }
         th { 
             position: sticky; 
@@ -60,31 +58,32 @@
             z-index: 50; 
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             color: white; 
-            border-right: 1px solid #334155; 
-            border-bottom: 2px solid #3b82f6; 
-            padding: 10px; 
-            font-size: 12px; 
+            border: 1px solid #334155; 
+            padding: 12px; 
+            font-size: 13px; 
             text-align: left;
             font-weight: 600;
-        }
-        .resizer { 
-            position: absolute; 
-            right: 0; 
-            top: 0; 
-            height: 100%; 
-            width: 20px; 
-            cursor: col-resize; 
-            z-index: 60;
-            background: rgba(255,255,255,0.1);
-            touch-action: none;
+            white-space: nowrap;
         }
         td { 
-            border-right: 1px solid #e2e8f0; 
-            border-bottom: 1px solid #e2e8f0; 
-            padding: 2px;
+            border: 1px solid #e2e8f0; 
+            padding: 8px;
+            white-space: nowrap;
+        }
+        /* 实际数量列特殊样式 */
+        td:first-child, th:first-child {
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 10;
+        }
+        th:first-child {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            z-index: 51;
         }
         .qty-input { 
-            width: 100%; 
+            width: 120px;
+            min-width: 100px;
             height: 55px; 
             border: 3px solid #3b82f6 !important; 
             text-align: center; 
@@ -97,14 +96,12 @@
         }
         .qty-input:focus {
             background: #fef9c3;
-            transform: scale(1.01);
+            transform: scale(1.02);
             border-color: #ef4444 !important;
             outline: none;
         }
         .row-focus { 
             background: linear-gradient(90deg, #fef08a 0%, #fde047 100%) !important;
-            animation: highlight 0.3s ease;
-            box-shadow: 0 0 0 3px #ef4444 inset;
         }
         @keyframes highlight {
             0%, 100% { background: linear-gradient(90deg, #fef08a 0%, #fde047 100%); }
@@ -149,11 +146,11 @@
         }
         .scan-frame { 
             position: absolute; 
-            top: 50%; 
+            top: 40%; 
             left: 50%; 
             transform: translate(-50%, -50%); 
-            width: 85%; 
-            height: 250px; 
+            width: 80%; 
+            height: 220px; 
             border: 3px solid #3b82f6; 
             border-radius: 20px; 
             box-shadow: 0 0 0 2000px rgba(0,0,0,0.75); 
@@ -195,12 +192,11 @@
             font-size: 10px;
             font-weight: bold;
         }
-        /* 新布局样式 */
         .btn-group-4 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
         .action-btn {
             padding: 12px 4px;
@@ -212,12 +208,25 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .bottom-fixed-btns {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 12px 16px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            z-index: 100;
+            border-top: 1px solid #e2e8f0;
         }
         .bottom-btns {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 12px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto;
         }
         .bottom-btn {
             padding: 14px 4px;
@@ -226,12 +235,12 @@
             font-size: 16px;
             text-align: center;
             transition: all 0.1s;
+            cursor: pointer;
         }
         .cam-btn-large {
             background: #3b82f6;
             color: white;
             font-size: 28px;
-            padding: 12px;
         }
         .close-scan-btn {
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
@@ -241,9 +250,10 @@
             padding: 12px 24px;
             border-radius: 50px;
             border: 2px solid white;
+            cursor: pointer;
         }
-        .close-scan-btn:active {
-            transform: scale(0.95);
+        .close-scan-btn:active, .action-btn:active, .bottom-btn:active {
+            transform: scale(0.97);
         }
         .scan-header {
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
@@ -256,18 +266,30 @@
             0%, 100% { border-color: #3b82f6; }
             50% { border-color: #10b981; box-shadow: 0 0 0 2000px rgba(16,185,129,0.3); }
         }
-        @media (max-width: 480px) {
+        #manualInput {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            outline: none;
+            margin-bottom: 16px;
+        }
+        #manualInput:focus {
+            border-color: #3b82f6;
+        }
+        @media (max-width: 640px) {
+            .content-area { padding: 12px; }
             .action-btn { font-size: 10px; padding: 10px 2px; }
             .bottom-btn { font-size: 14px; padding: 12px 4px; }
-            .qty-input { height: 48px; font-size: 1.2rem; }
+            .qty-input { height: 48px; font-size: 1.2rem; width: 100px; }
             .cam-btn-large { font-size: 24px; }
+            .bottom-fixed-btns { padding: 8px 12px; }
         }
-        @media (min-width: 768px) and (max-width: 1024px) {
+        @media (min-width: 768px) {
             .action-btn { font-size: 14px; }
             .bottom-btn { font-size: 18px; }
-        }
-        .action-btn:active, .bottom-btn:active {
-            transform: scale(0.97);
         }
     </style>
 </head>
@@ -288,7 +310,7 @@
     </div>
 
     <div class="main-card">
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-3 text-white">
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
             <div class="flex items-center justify-center gap-3">
                 <span class="text-2xl">⚡</span>
                 <h1 class="text-2xl font-black tracking-tight">飞速盘点</h1>
@@ -296,14 +318,9 @@
             </div>
         </div>
 
-        <div class="p-3">
-            <!-- 输入框区域 -->
-            <div class="mb-3">
-                <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." 
-                    class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 font-bold text-base focus:border-blue-500 outline-none" />
-            </div>
+        <div class="content-area">
+            <input type="text" id="manualInput" placeholder="📱 输入条码/编码/名称..." />
             
-            <!-- 四个按钮：列管理、导入、导出、确认 -->
             <div class="btn-group-4">
                 <button onclick="openColModal()" class="action-btn bg-gray-700 text-white shadow-md">
                     📊 列管理
@@ -319,28 +336,24 @@
                 </button>
             </div>
 
-            <!-- 表格容器 - 支持双指缩放 -->
-            <div class="table-container" id="tableContainer">
-                <div style="touch-action: pan-x pan-y pinch-zoom; width: 100%; height: 100%; overflow: auto;">
-                    <table id="mainTable" style="touch-action: pan-x pan-y pinch-zoom; width: 100%;">
-                        <thead id="tHead"></thead>
-                        <tbody id="tBody"></tbody>
-                    </table>
-                </div>
+            <!-- 表格容器 - 支持左右滑动 -->
+            <div class="table-container">
+                <table id="mainTable">
+                    <thead id="tHead"></thead>
+                    <tbody id="tBody"></tbody>
+                </table>
             </div>
-            
-            <!-- 底部三个按钮：摄像头、重置、导出Excel（原导出已移到上面，这里改成其他功能） -->
-            <div class="bottom-btns">
-                <button id="scanBtn" class="bottom-btn bg-blue-600 text-white shadow-lg cam-btn-large">
-                    📷 扫码
-                </button>
-                <button onclick="hardReset()" class="bottom-btn bg-red-600 text-white shadow-lg">
-                    🗑️ 重置
-                </button>
-                <button onclick="exportExcel()" class="bottom-btn bg-emerald-600 text-white shadow-lg">
-                    💾 导出Excel
-                </button>
-            </div>
+        </div>
+    </div>
+
+    <div class="bottom-fixed-btns">
+        <div class="bottom-btns">
+            <button id="scanBtn" class="bottom-btn bg-blue-600 text-white shadow-lg cam-btn-large">
+                📷 扫码
+            </button>
+            <button onclick="hardReset()" class="bottom-btn bg-red-600 text-white shadow-lg">
+                🗑️ 重置
+            </button>
         </div>
     </div>
 
@@ -358,7 +371,7 @@
             </div>
             <div class="absolute bottom-8 left-0 right-0 text-center">
                 <div class="bg-black/70 backdrop-blur text-white px-4 py-2 rounded-full inline-block text-sm font-bold border-2 border-blue-500">
-                    📷 将条码对准扫描框
+                    📷 将条码对准扫描框 (距离20-30cm最佳)
                 </div>
             </div>
         </div>
@@ -370,7 +383,6 @@
         
         let db = [];
         let columns = [];
-        let widths = {};
         let scanning = false;
         let reader = null;
         let lastCode = "";
@@ -378,7 +390,9 @@
         let currentFocusInterval = null;
         let pendingJump = null;
 
-        // 加载数据
+        const isIPad = /iPad|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+        const isIPadPro = isIPad && (screen.width >= 1024 || screen.height >= 1366);
+
         function loadData() {
             try {
                 const saved = localStorage.getItem(STORAGE_KEY);
@@ -386,7 +400,6 @@
                     const data = JSON.parse(saved);
                     db = data.db || [];
                     columns = data.columns || [];
-                    widths = data.widths || {};
                 }
                 if (!columns.length) {
                     columns = ['实际数量', '商品名称', '编码', '价格'];
@@ -410,7 +423,6 @@
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
                     db: db,
                     columns: columns,
-                    widths: widths,
                     version: VERSION
                 }));
             } catch(e) {
@@ -450,33 +462,39 @@
             }
         }
 
-        function fastJumpToRow(foundIndex) {
+        // 跳转到指定行并聚焦实际数量输入框
+        function jumpToRowAndFocusQty(foundIndex) {
             const rowEl = document.getElementById(`row-${foundIndex}`);
             if (rowEl) {
+                // 移除所有高亮
                 document.querySelectorAll('#mainTable tbody tr').forEach(tr => {
                     tr.classList.remove('row-focus');
                 });
                 
+                // 添加高亮
                 rowEl.classList.add('row-focus');
                 
-                rowEl.scrollIntoView({ 
-                    behavior: 'auto', 
-                    block: 'center',
-                    inline: 'center'
-                });
+                // 滚动到该行
+                rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
+                // 聚焦到实际数量输入框（第一列）
                 const qtyInput = document.getElementById(`qty-${foundIndex}`);
                 if (qtyInput) {
-                    qtyInput.focus();
-                    qtyInput.select();
-                    qtyInput.style.transform = 'scale(1.02)';
-                    qtyInput.style.borderColor = '#10b981';
                     setTimeout(() => {
-                        if (qtyInput) {
-                            qtyInput.style.transform = '';
-                            qtyInput.style.borderColor = '';
-                        }
-                    }, 200);
+                        qtyInput.focus();
+                        qtyInput.select();
+                        // 添加视觉反馈
+                        qtyInput.style.transform = 'scale(1.02)';
+                        qtyInput.style.borderColor = '#10b981';
+                        qtyInput.style.backgroundColor = '#fef9c3';
+                        setTimeout(() => {
+                            if (qtyInput) {
+                                qtyInput.style.transform = '';
+                                qtyInput.style.borderColor = '';
+                                qtyInput.style.backgroundColor = '';
+                            }
+                        }, 500);
+                    }, 300);
                 }
                 return true;
             }
@@ -485,7 +503,6 @@
 
         function stopScanningAndJump(foundIndex, productName) {
             pendingJump = foundIndex;
-            
             scanning = false;
             
             if (currentFocusInterval) {
@@ -510,15 +527,10 @@
             const scanUI = document.getElementById('scanUI');
             scanUI.style.display = 'none';
             
-            requestAnimationFrame(() => {
-                if (!fastJumpToRow(foundIndex)) {
-                    render();
-                    requestAnimationFrame(() => {
-                        fastJumpToRow(foundIndex);
-                    });
-                }
+            setTimeout(() => {
+                jumpToRowAndFocusQty(foundIndex);
                 pendingJump = null;
-            });
+            }, 150);
         }
 
         function handleBarcode(code, fromCamera = false) {
@@ -561,7 +573,6 @@
             if (foundIndex !== -1) {
                 playBeep(true);
                 vibrate();
-                
                 const productName = db[foundIndex]['商品名称'] || db[foundIndex]['名称'] || codeStr;
                 showToast(`✅ ${productName}`, false);
                 
@@ -574,12 +585,8 @@
                 if (fromCamera) {
                     stopScanningAndJump(foundIndex, productName);
                 } else {
-                    if (!fastJumpToRow(foundIndex)) {
-                        render();
-                        setTimeout(() => fastJumpToRow(foundIndex), 10);
-                    }
+                    jumpToRowAndFocusQty(foundIndex);
                 }
-                
                 return true;
             } else {
                 playBeep(false);
@@ -588,7 +595,6 @@
             }
         }
 
-        // S1.8 增强版扫码配置 - SupeRapido
         async function startScanning() {
             if (scanning) {
                 showToast("扫描器已在运行", false);
@@ -607,19 +613,26 @@
             }
             
             try {
-                // 检测设备性能，动态调整配置（确保流畅运行）
-                const deviceMemory = navigator.deviceMemory || 4;
-                const isHighEnd = deviceMemory >= 6;
-                
-                // 摄像头配置（优化曝光和对焦，提高识别率）
-                const constraints = {
-                    video: {
-                        facingMode: { exact: "environment" },
-                        width: { ideal: 1920, min: 1280 },
-                        height: { ideal: 1080, min: 720 },
-                        frameRate: { ideal: 30, min: 15 }
-                    }
-                };
+                let constraints;
+                if (isIPadPro) {
+                    constraints = {
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1280, min: 960 },
+                            height: { ideal: 720, min: 540 },
+                            frameRate: { ideal: 60, min: 30 }
+                        }
+                    };
+                } else {
+                    constraints = {
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1920, min: 1280 },
+                            height: { ideal: 1080, min: 720 },
+                            frameRate: { ideal: 30, min: 15 }
+                        }
+                    };
+                }
                 
                 let finalConstraints = constraints;
                 try {
@@ -634,7 +647,6 @@
                     };
                 }
                 
-                // S1.8 增强解码配置（不增加性能负担）
                 const hints = new Map();
                 hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
                 hints.set(ZXing.DecodeHintType.CHARACTER_SET, "UTF-8");
@@ -656,7 +668,7 @@
                 hints.set(ZXing.DecodeHintType.RETURN_CODABAR_START_END, true);
                 
                 reader = new ZXing.BrowserMultiFormatReader(hints);
-                reader.timeBetweenDecodingAttempts = isHighEnd ? 30 : 50;
+                reader.timeBetweenDecodingAttempts = isIPadPro ? 40 : 50;
                 
                 await reader.decodeFromConstraints(finalConstraints, 'video', (result, error) => {
                     if (result && scanning) {
@@ -667,7 +679,7 @@
                     }
                 });
                 
-                showToast("SupeRapido 智能识别已启动", false);
+                showToast(isIPadPro ? "iPad Pro 优化模式已启动" : "SupeRapido 智能识别已启动", false);
                 
                 const videoEl = document.getElementById('video');
                 const focusInterval = setInterval(() => {
@@ -696,7 +708,7 @@
                             }
                         }
                     }
-                }, 1000);
+                }, isIPadPro ? 800 : 1000);
                 
                 currentFocusInterval = focusInterval;
                 
@@ -709,26 +721,22 @@
 
         function stopScanning(manual = false) {
             scanning = false;
-            
             if (currentFocusInterval) {
                 clearInterval(currentFocusInterval);
                 currentFocusInterval = null;
             }
-            
             if (reader) {
                 try {
                     reader.reset();
                 } catch(e) {}
                 reader = null;
             }
-            
             const videoEl = document.getElementById('video');
             if (videoEl && videoEl.srcObject) {
                 const tracks = videoEl.srcObject.getTracks();
                 tracks.forEach(track => track.stop());
                 videoEl.srcObject = null;
             }
-            
             const scanUI = document.getElementById('scanUI');
             scanUI.style.display = 'none';
         }
@@ -738,23 +746,15 @@
             const tbody = document.getElementById('tBody');
             
             if (!columns.length) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</table></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center p-6 text-gray-500">暂无数据，请导入Excel或添加列表</td></tr>';
                 return;
             }
             
-            thead.innerHTML = `<tr>${columns.map(col => `
-                <th style="width: ${widths[col] || 130}px; position: relative;">
-                    ${col}
-                    <div class="resizer" 
-                         ontouchstart="startResize(event, '${col}')"
-                         ontouchmove="onResize(event, '${col}')"
-                         ontouchend="endResize(event, '${col}')"></div>
-                </th>
-            `).join('')}</tr>`;
+            thead.innerHTML = `<tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr>`;
             
             tbody.innerHTML = db.map((row, idx) => `
                 <tr id="row-${idx}">
-                    ${columns.map(col => `
+                    ${columns.map((col, colIdx) => `
                         <td>
                             ${col === '实际数量' ? 
                                 `<input id="qty-${idx}" type="number" value="${row[col] || ''}" 
@@ -764,7 +764,8 @@
                                     placeholder="0"
                                     inputmode="numeric" />` :
                                 `<input type="text" value="${escapeHtml(String(row[col] || ''))}" 
-                                    class="w-full p-2 text-xs outline-none bg-transparent"
+                                    class="w-full p-2 text-sm outline-none bg-transparent"
+                                    style="min-width:80px; white-space:nowrap;"
                                     onchange="updateCell(${idx}, '${col}', this.value)" />`
                             }
                         </td>
@@ -773,10 +774,10 @@
             `).join('');
             
             if (pendingJump !== null) {
-                requestAnimationFrame(() => {
-                    fastJumpToRow(pendingJump);
+                setTimeout(() => {
+                    jumpToRowAndFocusQty(pendingJump);
                     pendingJump = null;
-                });
+                }, 100);
             }
         }
         
@@ -799,29 +800,6 @@
         function updateCell(rowIndex, col, value) {
             db[rowIndex][col] = value;
             saveData();
-        }
-        
-        let resizeInfo = null;
-        function startResize(e, col) {
-            e.preventDefault();
-            const startX = e.touches[0].pageX;
-            resizeInfo = { col, startX, startWidth: widths[col] || 130 };
-        }
-        
-        function onResize(e, col) {
-            if (!resizeInfo || resizeInfo.col !== col) return;
-            e.preventDefault();
-            const delta = e.touches[0].pageX - resizeInfo.startX;
-            const newWidth = Math.max(60, resizeInfo.startWidth + delta);
-            widths[col] = newWidth;
-            render();
-        }
-        
-        function endResize(e, col) {
-            if (resizeInfo) {
-                saveData();
-                resizeInfo = null;
-            }
         }
         
         function renderColList() {
@@ -963,4 +941,83 @@
                         }
                         db = json.map(row => {
                             const newRow = { ...row };
-                            if (newRow['实际数量'] === undefined) newRow['实际
+                            if (newRow['实际数量'] === undefined) newRow['实际数量'] = '';
+                            return newRow;
+                        });
+                        saveData();
+                        render();
+                        showToast(`✅ 导入成功！共 ${db.length} 条数据`, false);
+                    } else {
+                        showToast("文件无数据", true);
+                    }
+                } catch(err) {
+                    showToast("解析失败", true);
+                }
+            };
+            fileReader.readAsArrayBuffer(file);
+            e.target.value = '';
+        };
+        
+        function exportExcel() {
+            if (!db.length) {
+                showToast("暂无数据可导出", true);
+                return;
+            }
+            const ws = XLSX.utils.json_to_sheet(db, { header: columns });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "库存数据");
+            const fileName = `飞速盘点_${new Date().toLocaleDateString()}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast("✅ 导出成功", false);
+        }
+        
+        function hardReset() {
+            if (confirm("⚠️ 确定清空所有数据吗？此操作不可恢复！")) {
+                localStorage.removeItem(STORAGE_KEY);
+                db = [];
+                columns = ['实际数量', '商品名称', '编码', '价格'];
+                saveData();
+                render();
+                showToast("已清空所有数据", false);
+            }
+        }
+        
+        window.addEventListener('beforeunload', () => {
+            if (scanning) {
+                stopScanning(true);
+            }
+        });
+        
+        loadData();
+        render();
+        
+        document.getElementById('confirmBtn').onclick = () => {
+            const input = document.getElementById('manualInput');
+            if (input.value.trim()) {
+                handleBarcode(input.value, false);
+                input.value = '';
+            }
+        };
+        
+        document.getElementById('manualInput').onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const input = e.target;
+                if (input.value.trim()) {
+                    handleBarcode(input.value, false);
+                    input.value = '';
+                }
+            }
+        };
+        
+        document.getElementById('scanBtn').onclick = () => {
+            if (scanning) {
+                stopScanning(true);
+            } else {
+                startScanning();
+            }
+        };
+        
+        console.log(`⚡ 飞速盘点 ${VERSION} - SupeRapido 已启动 | 扫码自动跳转数量单元格 | 表格支持左右滑动`);
+    </script>
+</body>
+</html>
